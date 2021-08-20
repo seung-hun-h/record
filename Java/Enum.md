@@ -110,7 +110,7 @@ public class Main {
 </p>
 
 ### values()
-`enum`에 정의된 모든 열거체를 저장한 배열을 생성하여 반환하는 메소드이다. `java.lang.Enum`에 정의되어 있지는 않고 자바 컴파일러가 자동으로 추가해주는 메소이다.
+`enum`에 정의된 모든 열거체를 저장한 배열을 생성하여 반환하는 메소드이다. `java.lang.Enum`에 정의되어 있지는 않고 자바 컴파일러가 자동으로 추가해주는 메소드이다.
 ```java
 public class Main {
     public static void main(String[] args) {
