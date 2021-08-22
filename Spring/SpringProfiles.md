@@ -168,3 +168,10 @@ spring.profiles.group.production=proddb,prodquartz
 ```
 
 스프링 부트 2.4 부터 달라지는 프로파일 설정에 관한 자세한 내용은 [여기](http://honeymon.io/tech/2021/01/16/spring-boot-config-data-migration.html)에 정리가 잘되어있다.
+
+---
+**참고**
+- https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.profiles
+- https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.external-config.files.profile-specific
+- https://www.baeldung.com/spring-profiles
+- http://honeymon.io/tech/2021/01/16/spring-boot-config-data-migration.html
