@@ -88,6 +88,10 @@ Spring Security에서는 `AuthenticationManager`가 인증을 담당하고, `Acc
 
 ## Authentication
 
+<p align=middle>
+    <img src="./images/abstractauthenticationprocessingfilter.png" width=600>
+</p>
+
 ### AuthenticationManager
 ```java
 public interface AuthenticationManager {
@@ -163,6 +167,10 @@ public Authentication authenticate(Authentication authentication) throws Authent
 </p>
 
 ## Authorization or Access Control
+
+<p align=middle>
+    <img src="./images/filtersecurityinterceptor.png" width=600>
+</p>
 
 SpringSecurity Authorization의 핵심 전략은 `AccessDecisionManager`이다. `AccessDecisionManager`는 세 가지 구현체를 가진다.
 
