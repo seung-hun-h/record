@@ -237,3 +237,8 @@ public final boolean isFullyAuthenticated() {
 
         ...
 ```
+
+---
+참고
+- https://docs.spring.io/spring-security/reference/servlet/authentication/rememberme.html#page-title
+- https://www.baeldung.com/spring-security-remember-me
