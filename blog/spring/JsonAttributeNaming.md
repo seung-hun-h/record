@@ -1,4 +1,4 @@
-클라이언트에게 API 요청이 오면 서버에서는 JSON으로 응답한다. 보통 dto를 사용하여 클라이언테에게 응답하는데, 기본적으로 dto의 필드 이름과 JSON의 Attribute 이름은 동일하다.
+클라이언트에게 API 요청이 오면 서버에서는 JSON으로 응답한다. 보통 dto를 사용하여 클라이언트에게 응답하는데, 기본적으로 dto의 필드 이름과 JSON의 Attribute 이름은 동일하다.
 
 <p align=middle>
     <img src="images/json-naming-origin.PNG" width=600>
