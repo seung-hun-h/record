@@ -64,21 +64,7 @@ CORS는 서버에 cross-origin access 설정에 대해서 다음과 같은 유�
 
 반면에 CORS는 서버의 응답에 몇 가지 추가적인 헤더만 요구한다. 따라서 유지 보수에 따른 오버헤드가 적다
 
-## 기타
-
-### Origin
-
-Origin은 Client-Resource의 위치를 말한다. CORS 요청일 경우 브라우저가 자동으로 헤더에 추가한다. Scheme, Host, Port 중 어느 하나라도 다르면 Cross-origin request이다.
-
-<p align=middle>
-    <img src=https://user-images.githubusercontent.com/60502370/147871342-0b7b78ae-5fb9-447e-8938-255758418d21.png width=300>
-</p>
-
-<p align=middle>
-    <img src=https://user-images.githubusercontent.com/60502370/147871396-627cf706-8fc2-40f1-9048-ad46b77fc3ad.png width=400>
-</p>
-
-### Preflight request
+## Preflight request
 
 브라우저가 서버에 요청이 가능한지 확인하는 것을 말한다. Preflight는 클라이언트의 요청에 대한 헤더나 메서드같은 메타 정보를 서버에 보내고, 서버는 메타 정보를 가지고 브라우저의 요청을 허가할 지 결정한다.
 
@@ -94,7 +80,7 @@ preflight request가 클라이언트의 요청와 구별되는 3가지 특징은
 
 1. HTTP OPTIONS Method (RFC2616)
 2. Origin Header 
-3. Access-Control-Request-Methods header
+3. Access-Control-Request-Methods Header
 
 HTTP OPTIONS Method는 서버-클라이언트의 통신과 관련된 정보를 조회할 때 사용되는 메서드이다.
 
@@ -105,9 +91,55 @@ OPTIONS 메서드와 Origin 헤더는 Preflight가 아니더라도 사용될 수
     <img src=https://user-images.githubusercontent.com/60502370/147874720-3671ff69-1f49-4bb8-8aa7-0c5ec7646ab1.png width=500>
 </p>
 
-그리고 필수적이지 않지만 추가적인 정보를 얻기 위해 클라이언트에서 직접 추가해야 하는 헤더인 `Access-Control-Request-Methods`, `Access-Control-Request-Headers`가 있다.
+### Cookies
+CORS는 기본적으로 Stateless하다. 따라서 사용자의 자격 정보 그러니까 쿠키와 같은 User Credentials를 기본적으로 사용하지 않는다.
 
-두 헤더는 복수 형태이며 Preflight에 필수적인 헤더는 아니다.
+CORS에서 쿠키를 사용하기 위해서는 `XMLHttpRequest`의 `withCredentials` 프로퍼티와 요청-응답의 `Access-Control-Allow-Credentials`를 사용한다.
+
+예를들어 쿠키-세션으로 로그인 기능을 구현한 경우, 쿠키에 사용자 정보가 저장되기 때문에 인증 및 인가가 필요한 서비스에서는 반드시 사용자 요청 헤더에 쿠키가 포함되어야한다.
+
+하지만 기본적으로 Preflight request에는 쿠키를 사용할 수 없고, 서버에서 쿠키를 허용하지 않는 경우에도 클라이언트의 요청에 쿠키를 포함할 수 없어 클라이언트와 서버 모두 쿠키를 사용할 수 있도록 설정해야한다.
+
+**서버에서 설정**
+
+서버에는 응답 헤더에 `Access-
+Control-Allow-Credentials`를 true로 설정하여 브라우저에게 쿠키를 허용하는 것을 알릴 수 있다.
+
+클라이언트에서는 Preflight와 본 요청 헤더 모두 Access-
+Control-Allow-Credentials를 포함해야한다.
+
+**클라이언트에서 설정**
+
+클라이언트에서 쿠키를 사용하기 위해서는 `XMLHttpRequest` Object의 `withCredentials`를 true로 설정해야한다. 이는 요청에 쿠키가 포함되어있다는 의미이다.
+
+따라서 서버와 클라이언트의 상호작용에 의해서 쿠키를 사용할 수 있는데 이를 표로 표현하면 아래와 같다.
+
+<p align=middle>
+    <img src=https://user-images.githubusercontent.com/60502370/147876817-c9979130-67e7-4d2e-a22c-3afe04862f90.png width=500>
+</p>
+
+JSONP와 같은 비표준 Cross-origin reqeust에서는 Preflight가 동작하지 않는다.
+
+<p align=middle>
+    <img src=https://user-images.githubusercontent.com/60502370/147876862-3836cec1-db6b-4fb1-94f2-9065c8e32d08.png width=500>
+</p>
+
+따라서 CSRF처럼 쿠키를 통한 악의적인 공격에 노출 될 수 있으므로 표준인 CORS를 따르는 것이 보안에 이점이 있다.
+
+
+## 기타
+
+### Origin
+
+Origin은 Client-Resource의 위치를 말한다. CORS 요청일 경우 브라우저가 자동으로 헤더에 추가한다. Scheme, Host, Port 중 어느 하나라도 다르면 Cross-origin request이다.
+
+<p align=middle>
+    <img src=https://user-images.githubusercontent.com/60502370/147871342-0b7b78ae-5fb9-447e-8938-255758418d21.png width=500>
+</p>
+
+<p align=middle>
+    <img src=https://user-images.githubusercontent.com/60502370/147871396-627cf706-8fc2-40f1-9048-ad46b77fc3ad.png width=500>
+</p>
 
 
 참고
