@@ -80,7 +80,7 @@ preflight request가 클라이언트의 요청와 구별되는 3가지 특징은
 
 1. HTTP OPTIONS Method (RFC2616)
 2. Origin Header 
-3. Access-Control-Request-Methods Header
+3. Access-Control-Request-Method Header
 
 HTTP OPTIONS Method는 서버-클라이언트의 통신과 관련된 정보를 조회할 때 사용되는 메서드이다.
 

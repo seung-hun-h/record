@@ -95,3 +95,10 @@ MIME 인코딩, 암호화, 압축, 코드 변환과 같은 동작이 이루어�
 <p align=middle>
     <img src=https://user-images.githubusercontent.com/60502370/140732720-816a1e2d-bd87-40c5-a898-c40b2bdc615f.png width=900>
 </p>
+
+
+## OSI 모델과 TCP/IP 모델
+
+<p align=middle>
+    <img src=https://user-images.githubusercontent.com/60502370/149448180-099c0471-6ba3-4fc9-acfb-3d3e7ab98630.png width=900>
+</p>
