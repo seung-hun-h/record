@@ -53,3 +53,9 @@ CGI는 요청을 처리할 때마다 프로세스를 실행하는 1회성 모델
   - 어플리케이션 서버의 수평적 확장
   - 가벼운 요청을 웹 서버가 앞 단에서 처리하여 어플리케이션 서버의 부담을 줄일 수 있다
   - 어플리케이션 서버에 문제가 발생해도 웹 서버는 동작하여 사용자에게 문제가 있음을 알릴 수 있다
+
+## 참고
+- https://ko.wikipedia.org/wiki/%EC%9B%B9_%EC%95%A0%ED%94%8C%EB%A6%AC%EC%BC%80%EC%9D%B4%EC%85%98_%EC%84%9C%EB%B2%84
+- https://www.nginx.com/resources/glossary/application-server-vs-web-server/
+- https://datatracker.ietf.org/doc/html/rfc3875
+- https://pkeu.notion.site/pkeu/Nginx-ab4282c71ccb4efaaaadf840deb8c06a
