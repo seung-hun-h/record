@@ -1,3 +1,16 @@
+## 목차
+- [Web Server & (Web) Application Server](#web-server--web-application-server)
+    - [Web Server](#web-server)
+    - [Application Server](#application-server)
+  - [CGI: Common Gateway Interface](#cgi-common-gateway-interface)
+    - [CGI의 한계](#cgi의-한계)
+  - [Module](#module)
+  - [Servlet](#servlet)
+    - [Application Server의 특징](#application-server의-특징)
+  - [서버의 분리](#서버의-분리)
+  - [결론](#결론)
+  - [참고](#참고)
+
 # Web Server & (Web) Application Server
 ### Web Server
 - 클라이언트가 요청하는 파일을 제공한다
