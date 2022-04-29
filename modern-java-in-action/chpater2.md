@@ -193,3 +193,4 @@ public static <T> List<T> filter(List<T> list, Predicate<T> p) {
 ```
 
 - 이제 사과 뿐 아니라 바나나, 오렌지, 정수, 문자열 등의 리스트에도 메서드를 작성할 수 있다.
+- test1
