@@ -21,6 +21,15 @@
   - [스트림 연산: 상태 없음과 상태 있음](#스트림-연산-상태-없음과-상태-있음)
     - [stateless operation](#stateless-operation)
     - [stateful operation](#stateful-operation)
+  - [숫자형 스트림](#숫자형-스트림)
+    - [기본형 특화 스트림](#기본형-특화-스트림)
+    - [숫자 범위](#숫자-범위)
+  - [스트림 만들기](#스트림-만들기)
+    - [값으로 스트림 만들기](#값으로-스트림-만들기)
+    - [null 이 될 수 있는 객체로 스트림 만들기](#null-이-될-수-있는-객체로-스트림-만들기)
+    - [배열로 스트림 만들기](#배열로-스트림-만들기)
+    - [파일로 스트림 만들기](#파일로-스트림-만들기)
+    - [함수로 무한 스트림 만들기](#함수로-무한-스트림-만들기)
 
 # 스트림 활용
 ## 필터링
@@ -196,10 +205,155 @@ Optional<Integer> max = numbers.stream().reduce(Integer::min);
 
 ### stateful operation
 - `reduce`, `sum`, `max` 같은 연산은 결과를 누적할 내부 상태가 필요하다
-  - 스트림에서 처리하는 요소 수와 관계 없이 내부 상태의 크기는 한정되어 있다.(?)
+  - 스트림에서 처리하는 요소 수와 관계 없이 내부 상태의 크기는 한정(Bounded)되어 있다.(?)
     - `int`, `double`을 사용하므로 그 크기가 한정되어 있다는 말인 것 같다
 
 - `sorted`, `distinct` 같은 연산은 filter나 map과 다르게 과거 이력을 알고 있어야 한다
   - 어떤 요소를 출력 스트림으로 추가하려면 모든 요소가 버퍼에 추가되어 있어야 한다(?)
-  - 연산에 필요한 저장소 크기가 정해져있지 않아 데이터 크기가 크거나 스트림이 무한이면 문제가 발생할 수 있다
+  - 연산에 필요한 저장소 크기가 정해져있지 않아(Unbounded) 데이터 크기가 크거나 스트림이 무한이면 문제가 발생할 수 있다
   - 따라서 내부 상태를 가진다
+
+## 숫자형 스트림
+```java
+int calories = menu.stream()
+                    .map(Dish::getCalories)
+                    .reduce(0, Integer::sum);
+```
+- 위 코드는 박싱 비용이 숨겨져있다.
+- 스트림 API는 숫자 스트림을 효율적으로 처리할 수 있도록 **기본형 특화 스트림**을 제공한다
+
+### 기본형 특화 스트림
+- IntStream
+  - `mapToInt()`
+  - IntStream의 map 연산은 `IntUnaryOperator`를 인수로 받는다
+  - `IntUnaryOperator`는 int를 인수로 받아서 int를 반환하는 람다이다
+  - IntStream에서 정수가 아닌 다른 값으로 변환하고 싶을 때는 `boxed()`를 사용한다
+  - `boxed()`는 특화 스트림을 일반 스트림으로 변환한다
+```java
+IntStream intStream = menu.stream().mapToInt(Dish::getCalories);
+Stream<Integer> stream = intStream.boxed();
+```
+  - `OptionalInt`
+    - 스트림에 요소가 없는 상황과 실제 최대값이 0인 상황을 구분하기 위해 존재
+    - `Optional`을 기본형 특화한 것이다
+- DoubleStream
+- LongStream
+
+### 숫자 범위
+- IntStream, LongStream에서 `range`, `rangeClosed` 두 가지 정적 메서드를 제공한다
+- `range` 메서드는 시작값과 종료값이 결과에 포함되지 않는다
+- `rangeClosed` 메서드는 시작값과 종료값이 결과에 포함된다
+
+```java
+IntStream evenNumbers = IntStream.rangeClosed(1, 100) // [1, 100]
+                                .filter(n -> n % 2 == 0);
+```
+
+## 스트림 만들기
+### 값으로 스트림 만들기
+- `Stream.of()`
+
+```java
+Stream<String> stream = Stream.of("Modern", "Java", "In", "Action");
+```
+- `Stream.empty()`
+
+```java
+Stream<String> stream = Stream.empty();
+```
+
+### null 이 될 수 있는 객체로 스트림 만들기
+- java 9부터 null이 될 수 있는 개체로 스트림을 만들 수 있는 새로운 메서드가 추가되었다
+
+```java
+// java 8 코드
+String homeValue = System.getProperty("home");
+Stream<String> homeValueStream = homeValue == null ? Stream.empty() : Stream.of(value);
+
+// java 9 코드
+Stream<String> homeValue = Stream.ofNullable(System.getProperty("home"));
+```
+
+- `flatMap()`을 활용한 패턴
+
+```java
+Stream<String> values = Stream.of("config", "home", "user")
+                            .flatMap(key -> Stream.ofNullable(System.getProperty(key)));
+```
+
+### 배열로 스트림 만들기
+```java
+int[] numbers = {2, 3, 4, 5, 6, 7, 8, 9};
+int sum = Arrays.stream(numbers).sum();
+```
+
+### 파일로 스트림 만들기
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/168460606-1d33bdcf-63ed-4459-a787-906963deb2a0.png">
+- Stream은 AutoCloseable 이므로 try-with-resource 사용가능
+
+### 함수로 무한 스트림 만들기
+- `Stream.iterate()`, `Stream.generate()`
+- 두 연산을 이용해서 무한 스트림을 만들 수 있다
+- 일반적으로 `limit(n)`을 함께 사용한다
+
+**iterate 메서드**
+
+```java
+Stream.iterate(0, n -> n + 2)
+      .limit(10)
+      .forEach(System.out::println);
+```
+- `iterate()`는 초기값과 람다를 인수로 받아서 새로운 값을 끊임없이 생산할 수 있다
+- 요청할 때마다 값을 생산할 수 있고, 끝이 없으므로 `언바운드 스트림`이다.
+- java 9에서 `iterate()`는 프레디케이트를 지원한다
+
+```java
+IntStream.iterate(0, n -> n < 100, n -> n + 4)
+        .forEach(System.out::println);
+```
+- 두 번째 인수로 프레디케이트를 받아 언제까지 작업을 수행할 것인지 기준으로 사용한다
+
+**generate 메서드**
+- `iterate()`와 달리 생산된 값을 연속적으로 계산하지 않는다
+- `Supplier<T>`를 인수로 받아서 새로운 값을 생산한다
+
+```java
+Stream.generate(Math::random)
+      .limit(5)
+      .forEach(System.out::println);
+```
+
+- 위 코드에서는 Supplier가 상태를 저장하지 않는다
+- 하지만 구현에 따라서 상태를 가질 수도 있다
+- Supplier가 상태를 가질 경우 병렬 코드에서는 안전하지 않다는 것을 명심해야 한다
+- 상태를 가진 Supplier는 단지 설명에 필요한 예제일 뿐 실제로는 피해야 한다
+
+```java
+// stateless code
+IntStream ones = IntStream.generate(() -> 1);
+IntStream twos = IntStream.generate(() -> 2);
+IntStream twos = IntStream.generate(new IntSupplier() {
+  public int getAsInt() {
+    return 1;
+  }
+});
+
+
+// stateful code
+IntSupplier fib = new IntSupplier() {
+  private int previous = 0;
+  private int current = 1;
+  public int getAsInt() {
+    int oldPrevious = this.previous;
+    int nextValue = this.previous + this.current;
+    this.previous = this.current;
+    this.current = nextValue;
+    return oldPrevious;
+  }
+};
+
+IntStream.generate(fib).limit(10).forEach(System.out::println);
+```
+- `fib`는 가변 상태 객체이다
+- 스트림을 병렬로 처리하면서 올바른 결과를 얻으려면 불변 상태 기법을 고수해야 한다.
