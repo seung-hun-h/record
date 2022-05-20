@@ -111,7 +111,7 @@ int totalCalories = menu.stream().collect(reducing(0, Dish::getCalories, (i, j) 
 - 한 개의 인수를 사용하는 방법도 있다
 
 ```java
-Optional<Dish> mostCalorieDish = menu.stream().collect(reducing(d1, d2 -> d1.getCalories() > d2.getCalories() ? d1 : d2));
+Optional<Dish> mostCalorieDish = menu.stream().collect(reducing((d1, d2) -> d1.getCalories() > d2.getCalories() ? d1 : d2));
 ```
 
 - 한 개의 인수를 갖는 reducing 메서드는 세 개의 인수를 갖는 reducing 메서드의 첫 번째 요소를 인수로 받는다
