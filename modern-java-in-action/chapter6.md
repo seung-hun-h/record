@@ -399,3 +399,364 @@ Map<Dish.Type, Set<CaloricLevel>> caloricLevelByType =
 - `toCollection`을 사용하면 원하는 방식으로 결과를 제어할 수도 있다
   - ex: `toCollection(HashSet::new)`
 
+## 분할
+- **분할 함수(Partitioning Function)**이라 불리는 프레디케이트를 분류 함수로 사용하는 특수한 그룹화 기능이다
+  - 불리언을 반환하므로 키는 Boolean이다
+  - 그룹화 맵은 최대 두 개의 그룹(true or false)으로 분류된다
+
+```java
+// 채식과 채식이 아닌 요리
+Map<Boolean, List<Dish>> partitionedMenu = 
+    menu.stream()
+        .collect(partitioningBy(Dish::isVegetarian));
+/**
+{false=[port, beef, chicken, prawns, salmon],
+true=[french fries, rice, season fruit, pizza]}
+*/
+```
+
+### 분할의 장점
+- 분할 함수가 반환하는 참, 거짓 두 가지 요소의 스트림 리스트를 모두 유지한다는 것이 분할의 장점이다
+  - `filter` 사용하면 프레디케이트 결과가 false인 것들은 유지하지 않는 것에 비해 `partitioningBy`는 유지 한다는 것에 이점을 가진다는 의미인 것 같다
+- `partitioningBy`의 두 번쨰 인수로 컬렉터를 전달할 수도 있다
+
+```java
+// 채식과 채식이 아닌 요리를 요리 종류 별로 그룹화
+Map<Boolean, Map<Dish.Type, List<Dish>>> vegetarianDishesByType = 
+    menu.stream()
+        .collect(
+            partitioningBy(Dish::isVegetarian,
+                            groupingBy(Dish::getType));
+        )
+/**
+{false={MEAT=[port, beef, chicken], FISH=[prawns, salmon]},
+true={OTHER=[french fries, rice, season fruit, pizza]}}
+*/
+```
+
+
+```java
+// 채식과 채식이 아닌 요리의 가장 칼로리가 높은 요리 종류
+Map<Boolean, Map<Dish.Type, List<Dish>>> vegetarianDishesByType = 
+    menu.stream()
+        .collect(
+            partitioningBy(Dish::isVegetarian,
+                            collectingAndThen(maxBy(Dish::getCalories)),
+                            Optional::get);
+        )
+// {false=pork, true=pizza}
+```
+
+### 숫자를 소수와 비소수로 분할하기
+```java
+public boolean isPrime(int candidate) {
+    int candidateRoot = (int) Math.sqrt(candidate);
+    return IntStream.rangeClosed(2, candidateRoot)
+                    .nonMatch(i -> candidate % i == 0);
+}
+
+public Map<Boolean, List<Integer>> partitionPrimes(int n) {
+    return IntStream.rangeClosed(2, n)
+                    .boxed()
+                    .collect(
+                        partitioningBy(candidate -> isPrime(candidate)));
+}
+```
+
+## Collector 인터페이스
+- Collector 인터페이스는 리듀싱 연산을 어떻게 구현할지 제공하는 메서드 집합으로 구성된다
+
+```java
+public interface Collector<T, A, R> {
+    Supplier<A> supplier();
+    BiConsumer<A, T> accumulator();
+    Function<A, R> finisher();
+    BinaryOperator<A> combiner();
+    Set<Characteristics> characteristics();
+}
+```
+- T는 수집될 스트림 항목의 제네릭 형식이다
+- A는 누적자, 즉 수집 과정에서 중간 결과를 누적하는 객체의 형식이다
+- R은 수집 연산 결과 객체의 형식이다
+
+```java
+// Stream<T>의 모든 요소를 List<T>로 하는 ToListCollector<T>
+public class ToListCollector<T> implements Collector<T, List<T>, List<T>>
+```
+
+### Collector 인터페이스의 메서드 살펴보기
+
+**supplier: 새로운 결과 컨테이너 만들기**
+- `supplier` 메서드는 빈 결과로 이루어진 Supplier를 반환해야 한다
+  - 수집 과정에서 빈 누적자 인스턴스를 만드는 파라미터가 없는 함수이다
+
+```java
+// ToListCollector supplier
+// Lambda
+public Supplier<List<T>> supplier() {
+    return () -> new ArrayList<>();
+}
+// Method reference
+public Supplier<List<T>> supplier() {
+    return ArrayList::new;
+}
+```
+
+**accumulator: 결과 컨테이너에 요소 추가하기**
+- 리듀싱 연산을 수행하는 함수를 반환한다
+  - 스트림의 n번째 요소를 탐색할 때, 누적자와 n번쨰 요소를 함수에 적용한다
+- 반환값은 void
+  - 요소를 탐색하며 적용하는 함수에 의해 누적자 내부상태가 바뀌므로 누적자가 어떤 값일지 단정할 수 없다
+
+```java
+// Lambda
+public BiCunsumer<List<T>, T> accumulator() {
+    return (list, item) -> list.add(item);
+}
+
+// Method reference
+public BiCunsumer<List<T>, T> accumulator() {
+    return List::add;
+}
+```
+
+**finisher: 최종 변환값을 결과 컨테이너로 적용하기**
+- 스트림 탐색을 끝내고 누적자 객체를 최정 결과로 반환하면서 누적 과정을 끝낼 때 호출할 함수를 반환한다
+  - 누적자 객체가 이미 최정 결과인 경우 항등 함수를 반환한다
+
+```java
+public Function<List<T>, List<T>> finisher() {
+    return Function.identity();
+}
+```
+
+- 실제로는 `collect`가 동작하기 전에 다른 중간 연산과 파이프라인을 구성할 수 있게 해주는 게으른 특성 그리고 병렬 실행 등도 고려해야 한다
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/169679039-5c5a1bf3-e07a-407e-87bb-08775fb7fad1.png">
+
+**combiner: 두 결과 컨테이너 병합**
+- 스트림의 서로 다른 서브파트를 병렬로 처리할 때 누적자가 이 결과를 어떻게 처리할 지 정의한다
+
+```java
+public BinaryOperator<List<T>> combiner() {
+    return (list1, list2) -> {
+        list1.addAll(list2);
+        return list1;
+    }
+}
+```
+
+- 네 번째 메서드(`combiner`?)를 이용하면 스트림의 리듀싱을 병렬로 수행할 수 있다
+  - 스트림의 리듀싱을 병렬로 수행할 때 자바7의 포크/조인 프레임워크와 `Spliterator`를 사용한다
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/169679225-04fe970a-be90-4094-8b49-50776910e3e8.png"> 
+
+1. 스트림을 분할해야 하는지 정의하는 조건이 거짓으로 바뀌기 전까지 원래 스트림을 재귀적으로 분할한다
+  - 분산된 작업의 크기가 너무 작아지면 병렬 수행의 속도는 순차 수행의 속도보다 느려진다
+  - 일반적으로 프로세싱 코어의 개수를 초과하는 병렬 작업은 효율적이지 않다
+2. 모든 서브스트림의 각 요소에 리듀싱 연산을 순차적으로 적용해서 서브스트림을 병렬로 처리할 수 있다
+3. 컬렉터의 `combiner` 메서드가 반환하는 함수로 모든 부분결과를 쌍으로 합친다
+   - 분할된 모든 서브스트림의 결과를 합치면서 연산이 종료된다
+
+**Characteristics**
+- 컬렉터의 연산을 정의하는 `Characteristics` 형식의 불변 집합을 반환한다
+- 스트림을 병렬로 리듀스할 것인지 그리고 병렬로 리듀스한다면 어떤 최적화를 선택해야 할지 힌트를 제공한다
+- `Characteristics`는 다음 세 항목을 포함하는 열거형이다
+  - `UNORDERED`: 리듀싱의 결과가 스트림 요소의 방문 순서나 누적 순서에 영향을 받지 않는다
+  - `CONCURRENT`: 다중 스레드에서 `accumulator` 함수를 동시에 호출할 수 있으며 이 컬렉터는 스트림의 병렬 리듀싱을 수행할 수 있다. 컬렉터의 플래그에 `UNORDERED`를 함께 설정하지 않았다면 데이터 소스가 정렬되어 있지 않은 상황에서만 병렬 리듀싱을 수행할 수 있다
+  - `IDENTITY_FINISH`: `finisher` 메서드가 반환하는 함수는 단순히 identity를 적용할 뿐이므로 이를 생략할 수 있다. 따라서 리듀싱 과정의 최종 결과로 누적자 객체를 바로 사용할 수 있다. 또한 누적자 A의 결과 R로 안전하게 형변환 할 수 있다 
+
+- `ToListCollector`는 `UNORDERED`, `CONCURRENT`, `IDENTITY_FINISH`이다
+  - 요소의 순서가 무의미한 데이터 소스여야 병렬로 수행할 수 있다
+  - 누적 순서가 필요한 것 아닌가?
+    - 누적 순서가 달라도 되면 스트림 소스인 List의 순서가 달라질 것 같은데
+  
+```java
+public class ToLIstCollector<T> implements Collector<T, List<T>, List<T>> {
+	@Override
+	public Supplier<List<T>> supplier() {
+		return ArrayList::new;
+	}
+
+	@Override
+	public BiConsumer<List<T>, T> accumulator() {
+		return List::add;
+	}
+
+	@Override
+	public BinaryOperator<List<T>> combiner() {
+		return (list1, list2) -> {
+			list1.addAll(list2);
+			return list1;
+		};
+	}
+
+	@Override
+	public Function<List<T>, List<T>> finisher() {
+		return Function.identity();
+	}
+
+	@Override
+	public Set<Characteristics> characteristics() {
+		return Collections.unmodifiableSet(EnumSet.of(
+            // Characteristics.UNORDERED,
+			Characteristics.CONCURRENT,
+			Characteristics.IDENTITY_FINISH
+		));
+	}
+}
+```
+
+```java
+// given
+int[] numbers = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+// when
+List<Integer> result = Arrays.stream(numbers).boxed()
+    .parallel()
+    .filter(number -> number % 2 == 0)
+    .collect(new ToLIstCollector<>());
+// then
+System.out.println("result = " + result);
+```
+
+- `Characteristics.UNORDERED`일 때 
+  - 소스의 순서가 보장되지 않음
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/169680225-1f5aeccf-df72-4797-a37e-50929d0a2fdf.png">
+
+- `Characteristics.UNORDERED` 아닐 때 
+  - 소스의 순서가 보장됨
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/169680267-f6bdc465-afea-40eb-bcec-f2fbf60f8174.png">
+
+
+**컬렉터 구현을 만들지 않고도 커스텀 수집 수행하기**
+- `IDENTITY_FINISH` 수집 연산에서는 Collector 인터페이스를 완전히 새로 구현하지 않고도 같은 결과를 얻을 수 있다
+  - 왜?: 일단 `java.util.stream.Stream<T>`의 `collect`가 그렇게 정의 되어있음
+  - `IDENTITY_FINISH`가 아닌 경우는 마지막 반환할 타입으로 값을 변환하는 로직이 구현되어야 한다.
+    - 이럴거면 Collector를 구현해라?
+
+```java
+<R> R collect(Supplier<R> supplier,
+                  BiConsumer<R, ? super T> accumulator,
+                  BiConsumer<R, R> combiner); // Collector의 combiner가 BinaryOperator인 것과 비교됨
+
+<R, A> R collect(Collector<? super T, A, R> collector);
+```
+
+```java
+List<Dish> dishes = menuStream.collect(
+    ArrayList::new, // supplier
+    List::add, // accumulator
+    List::addAll // combiner
+)
+```
+- 위 코드는 간결하지만 가독성이 떨어진다
+  - 적절한 클래스로 커스텀 컬렉터를 구현하는 편이 중복을 피하고 재사용성을 높이는데 도움이 된다
+- `collect` 메서드로는 `Characteristics`를 전달할 수 없다
+  - 즉, `IDENTITY_FINISH`와 `CONCURRENT`지만 `UNORDERED`는 아닌 컬렉터로만 동작한다
+  - 왜?: `IDENTITY_FINISH`면 finisher를 생략할 수 있다. `CONCURRENT`면 다중 스레드에서 `accumulator`를 호출할 수 있다.
+  - 왜 `UNORDERED`가 아니어야 하는가?
+    - > The combiner function must fold the elements from the second result container into the first result container.
+    - https://stackoverflow.com/questions/30526324/where-is-defined-the-combination-order-of-the-combiner-of-collectsupplier-accu
+    - Collector의 combiner는 BinaryOperator이므로 새로운 결과를 반환할 수 있는 반면, collect의 combiner는 BiCosumer이므로 어떤 결과를 반환하지 않는다.
+      - 따라서 새로운 결과를 반환함으로써 조작을 가할 수 없다. 단지 연산을 적용만할 수 있다
+
+## 커스텀 컬렉터를 구현해서 성능 개선하기
+- 자연수를 소수와 비소수로 나누기
+
+```java
+public Map<Boolean, List<Integer>> partitionPrimes(int n) {
+    return IntStream.rangeClosed(2, n).boxed()
+                    .collect(partitioningBy(candidate -> isPrime(candidate)));
+}
+
+public boolean isPrime(int candidate) {
+    int candidateRoot = (int) Math.sqrt(candidate);
+    return IntStream.rangeClosed(2, candidateRoot)
+                    .nonMatch(i -> candidate % i == 0);
+}
+```
+
+### 소수로만 나누기
+- 제수(divisor)를 현재 숫자 이하에서 발견한 소수로 제한할 수 있다
+  - 지금까지 발견한 소수 리스트에 접근해야 한다
+  - 중간 결과 리스트가 있다면 isPrime 메서드로 중간 결과 리스트를 전달하도록 다음과 같이 코드를 구현할 수 있다
+
+```java
+public static boolean isPrime(List<Integer> primes, int candidate) {
+    return primes.stream().nonMatch(i -> candidate % i == 0);
+}
+```
+- 대상 숫자의 제곱근보다 작은 소수만 사용하도록 코드를 최적화 해야 한다
+  - `filter(p -> p <= candidateRoot)`를 이용해서 대상의 루트보다 작은 소수를 필터링 할 수 있다
+  - 하지만 `filter`는 전체 스트림을 처리한 다음에 결과를 반환해 숫자가 클 경우 성능 문제가 발생할 수 있다
+  - 대상의 제곱보다 큰 소수를 찾으면 검사를 중단함으로써 성능 문제를 없앨 수 있다
+    - 정렬된 리스트와 프레디케이트를 인수로 받는 `takeWhile`을 사용할 수 있다
+
+```java
+public static boolean isPrime(List<Integer> primes, int candidate) {
+    return primes.stream()
+                .takeWhile(i -> i <= candidateRoot)
+                .nonMatch(i -> candidate % i == 0);
+}
+```
+
+### 커스텀 Collector 구현하기
+
+**1단계: Collector 클래스 시그니처 정의**
+
+```java
+public class PrimeNumbersCollector implements Collector<Integer,
+                                                         Map<Boolean, List<Integer>>,
+                                                         Map<Boolean, List<Integer>>>
+```
+
+**2단계: 리듀싱 연산 구현**
+```java
+public Supplier<Map<Boolean, List<Integer>>> supplier() {
+    return () -> new HashMap<Boolean, List<Integer>>() {{
+        put(true, new ArrayList<Integer>()),
+        put(false, new ArrayList<Integer>())
+    }}
+}
+
+public BiConsumer<Map<Boolean, List<Integer>>, Integer> accumulator() {
+    return (Map<Boolean, List<Integer>> acc, Integer candidate) -> {
+        acc.get(isPrime(acc.get(true), candidate))
+        .add(candidate);
+    }
+}
+```
+
+**3단계: 병렬 실행할 수 있는 컬렉터 만들기(가능하면)**
+
+```java
+public BinaryOperator<Map<Boolean, List<Integer>>> combiner() {
+    return (Map<Boolean, List<Integer>> map1, Map<Boolean, List<Integer>> map2) -> {
+        map1.get(true).addAll(map2.get(true));
+        map1.get(false).addAll(map2.get(false));
+        return map1;
+    }
+}
+```
+- 알고리즘 자체가 순차적이어서 컬렉터를 실제로 병렬로 사용할 수는 없다
+  - `combiner`가 호출될 일이 없으므로 빈 구현을 남겨둘 수도 있다
+
+**4단계: finisher 메서드와 컬렉터의 characteristics 메서드**
+
+```java
+public Function<Map<Boolean, List<Integer>>,
+                Map<Boolean, List<Integer>>> finisher() {
+    return Function.identity();                    
+}
+```
+
+```java
+public Function<Map<Boolean, List<Integer>>,
+                Map<Boolean, List<Integer>>> characteristics() {
+    return Collections.unmodifiableSet(EnumSet.of(IDENTITY_FINISH)));                    
+}
+```
+
