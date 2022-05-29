@@ -191,3 +191,175 @@ public static long forkJoinSum(long n) {
 - 포크/조인 프레임워크에서는 작업 훔치기(task stealing)이라는 기법으로 이 문제를 해결한다
   - `ForkJoinPool`의 모든 스레드를 거의 공정하기 분할한다
   - 한 스레드가 작업이 종료된 경우 유휴상태로 있는 것이 아니라 다른 스레드의 작업 큐의 꼬리에서 작업을 훔쳐온다
+
+## Spliterator 인터페이스
+- 자바 8에서 제공하는 새로운 인터페이스
+- '분할할 수 있는 반복자'라는 의미
+- `Iterator` 처럼 요소 탐색 기능을 제공하고, 병렬 작업에 특화되어 있다
+- 자바 8은 컬렉션 프레임워크에 포함된 모든 자료구조에 사용할 수 있는 디폴트 Spliterator 구현을 제공한다
+
+```java
+public interface Spliterator<T> {
+  boolean tryAdvance(Consumer<? super T> action);
+  Spliterator<T> trySplit();
+  long estimateSize();
+  int characteristics();
+}
+```
+- `tryAdvance`: Spliterator의 요소를 하나씩 순차적으로 소비하며 탐색해야 할 요소가 남아있으면 참을 반환한다
+- `trySplit`: Spliterator의 일부 요소를 분할해서 두 번째 Spliterator를 생성한다
+- `estimateSize`: 탐색해야 할 요소 수 정보를 제공한다
+
+
+### 분할 과정
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/170893450-ae9b8227-3b7d-4a06-b55f-d4f4541e9f11.png">
+
+- 분할과정은 재귀적으로 이루어진다
+- `trySplit`의 결과가 null이 될 떄까지 재귀 분할 과정을 반복한다
+
+**Spliterator 특성**
+- `characteristics` 메서드느 Spliterator 자체의 특성 집합을 포함하는 int를 반환한다
+  - Spliterator를 사용하는 애플리케이션이 이를 바탕으로 더 잘 제어하고 최적화할 수 있다
+
+
+### 커스텀 Spliterator 구현하기
+
+- 입력의 단어 개수를 구하는 메서드
+  - 여러 개의 공백을 하나의 공백으로 간주 함
+
+```java
+public int countWordsIteratively(String s) {
+  int counter = 0;
+  boolean lastSpace = true;
+  for (char c : s.toCharArray()) {
+    if (Character.isWhitespace(c)) {
+      lastSpace = true;
+    } else {
+      if (lastSpace) counter++;
+      lastSpace = false;
+    }
+  }
+
+  return  counter;
+}
+```
+
+**함수형으로 단어 수를 세는 메서드 구현하기**
+```java
+public class WordCounter {
+  private final int counter;
+  private final boolean lastSpace;
+
+  public WordCounter(int counter, boolean lastSpace) {
+    this.counter = counter;
+    this.lastSpace = lastSpace;
+  }
+
+  public WordCounter accumulate(Character c) {
+    if (Character.isWhitespace(c)) {
+      return lastSpace ?
+              this:
+              new WordCounter(counter, true);
+    }
+
+    return lastSpace ?
+            new WordCounter(counter + 1, false) :
+            this;
+  }
+
+  public WordCounter combine(WordCounter wordCounter) {
+    return new WordCounter(counter + wordCounter.counter, wordCounter.lastSpace);
+  }
+
+  public int getCounter() {
+    return counter;
+  }
+}
+```
+
+- `accumulate`: WordCounter의 상태를 어떻게 바꿀 것인 지 정의한다
+  - 새로운 WordCounter 클래스를 어떤 상태로 생성할 것인지 정의 한다
+  - 스트림을 탐색하면서 새로운 문자를 찾을 때마다 호출된다
+- `combine`: WordCounter의 결과를 합친다
+
+```java
+private int countWords(Stream<Character> stream) {
+  WordCounter wordCounter = stream.reduce(new WordCounter(0, true),
+  WordCounter::accmulate,
+  WordCounter::combine);
+
+  return wordCounter.getCounter();
+}
+```
+
+**WordCounter 병렬로 수행하기**
+
+- `countWords(stream.parallel())`
+- 원하는 결과가 나오지 않는다
+  - 원래 문자열의 임의의 위치에서 둘로 나누다보니 예상치 못하게 하나의 단어르 둘로 계산하는 상황이 발생할 수 있다(?)
+- 문자열을 임의의 위치에서 분할하지 않고 단어가 끝나는 위치에서만 분할하는 방법으로 이 문제를 해결할 수 있다
+
+```java
+class WordCounterSpliterator implements Spliterator<Character> {
+		private final String string;
+		private int currentChar = 0;
+
+		public WordCounterSpliterator(String string) {
+			this.string = string;
+		}
+
+		@Override
+		public boolean tryAdvance(Consumer<? super Character> action) {
+			action.accept(string.charAt(currentChar++));
+			return currentChar < string.length();
+		}
+
+		@Override
+		public Spliterator<Character> trySplit() {
+			int currentSize = string.length() - currentChar;
+
+			if (currentSize < 10) {
+				return null;
+			}
+
+			for (int splitPos = currentSize / 2 + currentChar; splitPos < string.length(); splitPos++) {
+				if (Character.isWhitespace(string.charAt(splitPos))) {
+					Spliterator<Character> spliterator = new WordCounterSpliterator(string.substring(currentChar, splitPos));
+					currentChar = splitPos;
+					return spliterator;
+				}
+			}
+			return null;
+		}
+
+		@Override
+		public long estimateSize() {
+			return string.length() - currentChar;
+		}
+
+		@Override
+		public int characteristics() {
+			return ORDERED + SIZED + SUBSIZED + NONNULL + IMMUTABLE;
+		}
+	}
+```
+- `tryAdvance`
+  - 문자열에서 현재 인덱스에 해당하는 문자를 Consumer에 제공한 다음 인덱스를 증가시킨다
+  - `WordCounter`의 `accumulate`에만 적용한다
+- `trySplit`
+  - 분할 동작을 중단할 한계를 설정해야 한다
+  - 분할 과정에서 남은 문자수가 한계값 이하이면 null을 반환한다
+  - 분할이 필요한 상황에서는 문자열 청크의 중간 위치를 기준으로 분할하도록 한다
+  - 단어 중간을 분할하지 않도록 빈 문자가 나올때까지 분할 위치를 이동시킨다
+  - 분할할 위치를 찾았으면 새로운 `Spliterator`를 만든다
+- 탐색해야 할 요소의 수(`estimateSize`)는 Spliterator가 파싱할 문자열 전체 길이와 현재 반복 중인 위치의 차다
+  
+**WordCounterSpliterator 활용**
+```java
+Spliterator<Character> spliterator = new WordCounterSpliterator(SENTENCE);
+Stream<Character> stream = StreamSupport.stream(spliterator, true);
+```
+
+- Spliterator는 첫 번째 탐색 시점, 첫 번째 분할 시점 또는 첫 번째 예상 크기 요쳥 시점에 요소의 소스를 바인딩할 수 있다
+- 이와 같은 동작을 늦은 바인딩 Spliterator라고 부른다
