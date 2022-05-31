@@ -72,3 +72,76 @@ Map<String, Integer> ageOfFriends = Map.of(entry("Raphael", 30), entry("Olivia",
 ```
 
 ## 리스트와 집합 처리
+- 자바 8에서는 List, Set 인터페이스에 다음과 같은 메서드를 추가했다
+  - `removeIf`: 프레디케이트를 만족하는 요소를 제거한다
+  - `replaceAll`: List 인터페이스에서 이용할 수 있는 기능으로 UnaryOperator 함수를 이용해 요소를 바꾼다
+  - `sort`: List 인터페이스에서 제공하는 기능으로 리스트를 정렬한다
+- 컬렉션을 바꾸는 동작은 에러를 유발하며 복잡합을 더하기 때문에 위 메서드처럼 기존 컬렉션 자체를 바꾸는 메서드가 나타났다
+
+### removeIf 메서드
+```java
+for (Transaction transaction : transactions) {
+  if (Character.isDigit(transaction.getReferenceCode()).charAt(0)) {
+    transaction.remove(transaction);
+  }
+}
+```
+
+- 위 코드는 `ConcurrentModificationException` 발생
+  - for-each는 내부적으로 `Iterator`를 사용하기 때문이다
+
+```java
+for (Iterator<Transaction> iterator = transactions.iterator(); iterator.hasNext(); ) {
+  Transaction transaction = iterator.next();
+  if (Character.isDigit(transaction.getReferenceCode()).charAt(0)) {
+    transaction.remove(transaction);
+  }
+}
+```
+- 위 코드에서 반복자와 컬렉션의 상태가 서로 동기화되지 않는다
+  - `Iterator` 객체는 `next()`, `hasNext()`를 이용해 소스를 질의 한다
+  - `Collection` 객체는 `remove()`를 호출해 요소를 삭제한다
+
+```java
+for (Iterator<Transaction> iterator = transactions.iterator(); iterator.hasNext(); ) {
+  Transaction transaction = iterator.next();
+  if (Character.isDigit(transaction.getReferenceCode()).charAt(0)) {
+    iterator.remove();
+  }
+}
+```
+- 반복자의 `remove()`를 호출해 위 문제를 해결했다
+- 위 패턴을 자바 8의 `removeIf`로 바꿀 수 있다
+
+```java
+transactions.removeIf(transaction -> Character.isDigit(transaction.getReferenceCode().charAt(0)));
+```
+
+### replaceAll 메서드
+- `List` 인터페이스의 `replaceAll` 메서드를 이용해 리스트의 각 요소를 새로운 요소로 바꿀 수 있다
+- 스트림 API를 사용하면 다음처럼 문제를 해결할 수 있었다
+
+
+```java
+referenceCodes.stream()
+          .map(code -> Character.toUpperCase(code.charAt(0)) + code.substring(1))
+          .collect(Collectors.toList())
+          .forEach(System.out::println);
+```
+
+- 위 코드는 새로운 컬렉션을 만든다. 목표는 기존의 컬렉션을 바꾸는 것이다
+
+```java
+for (ListIterator<String> iterator = referenceCodes.listIterator(); iterator.hasNext(); ) {
+  String code = iterator.next();
+  iterator.set(Character.toUpperCase(code.charAt(0)) + code.substring(1));
+}
+```
+
+- 반복자의 `set()`을 호출해서 컬렉션을 변경할 수 있다
+- 위 코드는 자바 8의 List 인터페이스에서 제공하는 `replaceAll`로 바꿀 수 있다
+
+```java
+refereceCodes.replaceAll(code -> code -> Character.toUpperCase(code.charAt(0)) + code.substring(1));
+```
+
