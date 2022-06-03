@@ -164,4 +164,236 @@ public interface BufferedReaderProcessor {
     String process(BufferedReader b) throws IOException;
 }
 ```
-  
+
+## 람다로 객체지향 디자인 패턴 리팩터링하기
+- 다양한 패턴을 유형별로 정리한 것이 디자인 패턴이다
+  - 디자인 패턴은 공통적인 소프트웨어 문제를 설계할 때 재사용할 수 있는, 검증된 청사진을 제공한다
+
+### 전략 패턴
+- 전략 패턴은 한 유형의 알고리즘을 보유한 상태에서 런타임에 적절한 알고리즘을 선택하는 기법이다
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/171763186-2e766488-6099-46dd-9e9d-6b98bc2b404e.png">
+
+  - 알고리즘을 나타내는 인터페이스(Strategy 인터페이스)
+  - 다양한 알고리즘을 나타내는 한 개 이상의 인터페이스 구현
+  - 전략 객체를 사용하는 한 개 이상의 클라이언트
+
+```java
+public interface ValidationStrategy {
+  boolean execute(String s);
+}
+
+public class IsNumeric implements ValidationStrategy {
+  public boolean execute(String s) {
+    return s.matches("\\d+");
+  }
+}
+
+public class IsAllowerCase implements ValidationStrategy {
+  public boolean execute(String s) {
+    return s.matches("[a=z]+");
+  }
+}
+```
+
+```java
+public class Validator {
+  private final ValidationStrategy strategy;
+  public Validator(ValidationStrategy strategy) {
+    this.strategy = strategy;
+  } 
+
+  public boolean validate(String s) {
+    return strategy.execute(s);
+  }
+}
+```
+
+**람다 표현식 사용**
+- `ValidationStrategy`는 함수형 인터페이스며 `Predicate<String>`과 같은 함수 디스크립터를 갖고있다
+
+```java
+Validator numericValidator = new Validator((String s) -> s.matches("[a-z]+"));
+
+boolean b1 = numericValidator.validate("aaa");
+```
+
+### 템플릿 메서드 패턴
+- 알고리즘의 개요를 제시한 다음에 알고리즘 일부를 고칠 수 있는 유연함을 제공해야 할 때 사용한다
+  - 어떤 알고리즘을 사용하고 싶은데 그대로는 안되고 조금 수정해야 하는 상황에서 사용한다
+
+```java
+abstract class OnlineBanking {
+  public void processCustomer(int id) {
+    Customer customer = Database.getCustomerWithId(id);
+    makeCustomerHappy(customer);
+  }
+  abstract void makeCustomerHappy(Customer customer);
+}
+```
+
+**람다 표현식 사용**
+```java
+public void processCustomer(int id, Consumer<Customer> makeCustomerHappy) {
+  Customer customer = Database.getCustomerWithId(id);
+  makeCustomerHappy.accept(customer);
+}
+```
+
+### 옵저버 패턴
+- 어떤 이벤트가 발생했을 때 한 객체가 다른 객체 리스트에 자동으로 알림을 보내야 하는 상황에 사용한다
+  - GUI에 많이 사용된다
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/171766646-5819228b-53e4-4cad-a3f5-0b255f23618b.png">
+
+```java
+interface Observer {
+  void notify(String tweet);
+}
+
+class NYTimes implements Observer {
+  public void notify(String tweet) {
+    if (tweet != null && tweet.contains("money")) {
+      System.out.println("Breaking news in NY! " + tweet);
+    }
+  }
+}
+
+class Guardian implements Observer {
+  public void notify(String tweet) {
+    if (tweet != null && tweet.contains("queen")) {
+      System.out.println("Yet more news from London... " + tweet);
+    }
+  }
+}
+
+class LeMonde implements Observer {
+  public void notify(String tweet) {
+    if (tweet != null && tweet.contains("wine")) {
+      System.out.println("Today cheese, wine and news! " + tweet);
+    }
+  }
+}
+```
+
+```java
+interface Subject {
+  void registerObserver(Observer o);
+  void notifyObservers(String tweet);
+}
+
+class Feed implements Subject {
+  private final List<Observer> observers = new ArrayList<>();
+
+  public void registerObserver(Observer o) {
+    this.observers.add(o);
+  }
+
+  public void notifyObservers(String tweet) {
+    observers.forEach(o -> o.notify(tweet));  
+  }
+}
+```
+
+**람다 표현식 사용하기**
+```java
+Feed f = new Feed();
+f.registerObserver((String tweet) -> {
+  if (tweet != null && tweet.contains("money")) {
+      System.out.println("Breaking news in NY! " + tweet);
+    }
+});
+```
+
+- 옵저버가 상태를 가지며, 여러 메서드를 정의하는 등 복잡하다면 람다 표현식보다 기존의 클래스 구현 방식을 고수하는 것이 바람직할 수 있다
+
+### 의무 체인 패턴
+- 작업 처리 객체의 체인을 만들 때 사용한다
+  - 한 객체가 어떤 작업을 처리한 다음에 다른 객체로 결과를 전달하고, 다른 객체도 작업을 처리한 후 그 결과를 또 다른 객체로 전달하는 방식이다
+- 일반적으로 다음으로 처리할 객체 정보를 유지하는 필드를 포함하는 작업 처리 추상 클래스로 의무 체인 패턴을 구성한다
+
+```java
+public abstract class ProcessingObject<T> {
+  protected ProcessingObject<T> successor;
+  public void setSuccessor(ProcessingObject successor) {
+    this.successor = successor;
+  }
+
+  public T handle(T input) {
+    T r = handleWork(input);
+    if (successor != null) {
+      return successor.handle(r);
+    }
+    return r;
+  }
+  abstract protected T handleWork(T input);
+}
+```
+
+<img width="550" alt="image" src="https://user-images.githubusercontent.com/60502370/171768780-da74dd2d-25cc-4c47-a455-e1491937faf8.png">
+
+- 템플릿 메서드 디자인 패턴이 적용됐다
+- `handleWork` 메서드를 구현하여 다양한 종류의 작업 처리 객체를 만들 수 있다
+
+```java
+public class HeaderTextProcessing extends ProcessingObject<String> {
+  public String handleWork(String text) {
+    return "From Raul, Mario and Alan: " + text;
+  }
+}
+
+public class SpellCheckerProcessing extends ProcessingObject<String> {
+  public String handleWork(String text) {
+    return text.replaceAll("labda", "lambda");
+  }
+}
+```
+
+**람다 표현식 사용**
+```java
+UnaryOperator<String> headerProcessing = (String text) -> "From Raoul, Mario and Alan: " + text;
+
+UnaryOperator<String> spellCheckerProcessing = (String text) -> text.replaceAll("labda", "lambda");
+
+Function<String, String> pipeline = headerProcessing.andThen(spellCheckerProcessing);
+
+String result = pipeline.apply("...");
+```
+
+### 팩토리 패턴
+- 인스턴스화 로직을 클라이언트에 노출하지 않고 객체를 만들 때 사용한다
+
+```java
+public class ProductFactory {
+  public static Product createProduct(String name) {
+    switch(name) {
+      case " loan": return new Loan();
+      case " stock": return new Stock();
+      case " bond": return new Bond();
+      default: throw new RuntimeException("No such product: " + name);
+    }
+  }
+}
+```
+
+**람다 표현식 사용**
+```java
+Supplier<Product> loanSupplier = Loan::new;
+final static Map<String, Supplier<Product>> map = new HashMap<>();
+
+static {
+  map.put("loan", Loan::new);
+  map.put("stock", Stock::new);
+  map.put("bond", Bond::new);
+}
+```
+
+```java
+public static Product createProduct(String name) {
+  Supplier<Product> p = map.get(name);
+  if (p != null) return p.get();
+  throw new IllegalArgumentException("No such product " + name);
+}
+```
+- createProduct에 생성자 인수를 여러개 넘겨야하는 상황에서는 Supplier로 해결할 수 없다
+  - `TriFunction<T, U, V, R>`를 사용한다
