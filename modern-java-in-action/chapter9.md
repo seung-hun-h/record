@@ -397,3 +397,126 @@ public static Product createProduct(String name) {
 ```
 - createProduct에 생성자 인수를 여러개 넘겨야하는 상황에서는 Supplier로 해결할 수 없다
   - `TriFunction<T, U, V, R>`를 사용한다
+
+## 람다 테스팅
+```java
+public class Point {
+  private final int x;
+  private final int y;
+
+  private Point(int x, int y) {
+    this.x = x;
+    this.y = y;
+  }
+
+  public int getX() { return x; }
+  public int getY() { return y; }
+  public Point moveRightBy(int x) {
+    return new Point(this.x + x, this.y);
+  }
+}
+```
+
+### 보이는 람다 표현식의 동작 테스팅
+- `moveRightBy`는 public이므로 테스트 가능하다
+- 하지만 람다는 익명이므로 테스트 코드 이름을 호출할 수 없다
+  - 정적 필드에 추가하여 재사용할 수 있고, 메서드를 호출하는 것처럼 할 수 있다
+
+```java
+public class Point {
+  ...
+  public final static Comparator<Point> compareByXAndThenY = 
+        comparing(Point::getX).thenComparing(Point::getY);
+}
+```
+
+- 람다 표현식은 함수형 인터페이스의 인스턴스를 생성한다
+  - 생성된 인터페이스의 동작으로 람다 표현식을 테스트할 수 있다
+
+```java
+@Test
+public void testComparingTwoPoints() {
+  Point p1 = new Point(10, 15);
+  Point p2 = new Point(10, 20);
+  int result = Point.compareByXAndThenY.compare(p1, p2);
+  assertTrue(result < 0);
+}
+```
+
+### 람다를 사용하는 메서드의 동작에 집중하라
+- 람다의 목표는 정해진 동작을 다른 메서드에서 사용할 수 있도록 하나의 조각으로 캡슐화 하는 것이다
+  - 세부 구현을 포함하는 람다 표현식을 공개하지 말아야 한다
+  - 람다 표현식을 사용하는 메서드의 동작을 테스트하면 람다를 공개하지 않을 수 있다
+
+```java
+public static List<Point> moveAllPointsRightBy(List<Point> points, int x) {
+  return points.stream()
+            .map(p -> new Point(p.getX() + x, p.getY()))
+            .collect(toList());
+}
+```
+
+### 복잡한 람다를 개별 메서드로 분할하기
+- 많은 로직을 포함하는 복잡한 람다 표현식을 테스트하기 위한 해결책 중 하나는 메서드 참조를 사용하는 것이다
+- 새로운 일반 메서드를 선언하여 람다를 메서드 참조로 바꾸면 일반 메서드를 테스트하듯 람다를 테스트할 수 있다
+
+### 고차원 함수 테스팅
+- 함수를 인수로 받거나 다른 함수를 반환하는 메서드를 고차원 함수라고 한다
+- 메서드가 람다를 인수로 받는다면 다른 람다로 메서드의 동작을 테스트할 수 있다
+  - 자체적으로 다른 람다 표현식을 메서드의 인수로 전달하는 방식
+
+```java
+@Test
+public void testFilter() {
+  List<Integer> numbers = Arrays.asList(1, 2, 3, 4);
+  List<Integer> even = filter(numbers, i -> i % 2 == 0);
+  List<Integer> smallerThanThree = filter(numbers, i -> i < 3);
+  ...
+}
+```
+
+- 테스트해야 할 메서드가 다른 함수를 반환하면 함수형 인터페이스의 인스턴스로 간주하고 테스트를 진행한다
+
+## 디버깅
+- 문제가 발생한 코드를 디버깅할 때는 두 가지를 가장 먼저 확인한다
+  - 스택 트레이스
+  - 로깅
+
+### 스택 트레이스 확인
+- 스택 프레임에서 프로그램의 실행이 중단되기까지 정보를 얻을 수 있다
+  - 프로그램의 메서드를 호출할 때마다 메서드 호출 위치, 인수값, 메서드 지역변수 등을 포함한 정보가 생성되며 스택 프레임이 저장된다
+- 프록램이 멈추면 프로그램이 어떻게 멈추게됐는지 프레임별로 보여주는 스택 트레이스를 얻을 수 있다
+
+**람다와 스택 트레이스**
+- 람다 표현식은 이름이 없기 때문에 복잡한 스택 트레이스가 생성된다
+- 따라서 스택 트레이스를 따라가도 정보를 얻기 어렵다
+- 현재의 자바 컴파일러에서는 어쩔 수 없다
+
+### 정보 로깅
+```java
+List<Integer> numbers = Arrays.asList(2, 3, 4, 5);
+
+numbers.stream()
+      .map(x -> x + 17)
+      .filter(x -> x % 2 == 0)
+      .limit(3)
+      .forEach(System.out::println);
+```
+- `forEach`를 호출하는 순간 전체 스트림이 소비된다
+- `peek`을 사용하면 각각의 연산이 어떤 결과를 도출하는 지 확인할 수 있다
+  - `peek`은 스트림의 각 요소를 소비한 것처럼 동작을 실행하지만 실제로 스트림을 소비하지는 않는다
+  - 자신이 확인한 요소를 파이프라인의 다음 연산으로 그대로 전달한다
+
+```java
+List<Integer> numbers = Arrays.asList(2, 3, 4, 5);
+
+numbers.stream()
+      .peek(x -> System.out.println("from stream: " + x))
+      .map(x -> x + 17)
+      .peek(x -> System.out.println("after map: " + x))
+      .filter(x -> x % 2 == 0)
+      .peek(x -> System.out.println("after filter: " + x))
+      .limit(3)
+      .peek(x -> System.out.println("after limit: " + x))
+      .forEach(System.out::println);
+```
