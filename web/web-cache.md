@@ -182,7 +182,7 @@
   - 클라이언트가 요청시 프록시 캐시가 사본을 전달할지, 원 서버에 요청을 전달할지 결정한다
   - Cache-Control: no-cache가 요청 헤더에 있다면 원 서버로 요청을 전달한다
   - 이때 원 서버가 사용할 수 없는 상태라면, 프록시는 정책상 200을 전달할 수도 있다
-  - Cache-Control: must-revalidate가 헤더에 포함되면 이러한 상황에서 반드시 `504 Gateway Timeout error`를 응답해야 한다
+  - Cache-Control: must-revalidate가 헤더에 포함되면 이러한 상황에서 반드시 `504 Gateway Timeout error`를 반환해야 한다
 
 ### 휴리스틱 만료
 - `Cache-Control: max-age` 헤더나 `Expires` 헤더 중 어느 것도 포함되지 않는 경우에 캐시는 경험적인 방법으로 최대 나이를 계산한다
