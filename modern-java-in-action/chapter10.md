@@ -199,3 +199,123 @@ Collector<? super Car, ?, Map<Brand, Map<Color, List<Car>>>>
 - 중첩된 그룹화 수준에 반대로 그룹화 함수를 구현해야 하므로 유틸리티 사용코드가 직관적이지 않다
 - 자바 형식 시스템으로는 이런 순서 문제를 해결할 수 없다
 
+## 자바로 DSL을 만드는 패턴과 기법
+- 도메인 모델
+
+```java
+@Getter
+@Setter
+public class Stock {
+  private String symbol;
+  private String market;
+}
+```
+
+```java
+@Getter
+@Setter
+public class Trade {
+  public enum Type { BUY, SELL }
+  private Type type;
+
+  private Stock stock
+  private int quantity;
+  private double price;
+
+  public double getValue() {
+    return quantity * price;
+  }
+}
+```
+
+```java
+public class Order {
+  private String customer;
+  private List<Trade> trades = new ArrayList<>();
+
+  public void addTrade(Trade trade) {
+    this.trades.add(trade);
+  }
+
+  public String getCustomer() {
+    return this.customer;
+  }
+
+  public void setCustomer(String customer) {
+    this.customer = customer;
+  }
+
+  public double getValue() {
+    return trades.stream().mapToDouble(Trade::getValue).sum();
+  }
+}
+```
+- BigBank 고객이 요청한 두 거래를 포함하는 주문
+
+```java
+Order order = new Order();
+order.setCustomer("BigBank");
+
+Trade trade1 = new Trade():
+trade1.setType(Trade.Type.BUY);
+
+Stock stock1 = new Stock();
+stock1.setSymbol("IBM");
+stock1.setMarket("NYSE");
+
+trade1.setStock(stock1);
+trade1.setPrice(125.00);
+trade1.setQuantity(80);
+order.addTrade(trade1);
+
+Trade trade2 = new Trade():
+trade2.setType(Trade.Type.BUY);
+
+Stock stock2 = new Stock();
+stock2.setSymbol("IBM");
+stock2.setMarket("NYSE");
+
+trade2.setStock(stock2);
+trade2.setPrice(125.00);
+trade2.setQuantity(80);
+order.addTrade(trade2);
+```
+
+### 메서드 체인
+```java
+Order order = forCustomer("BigBank")
+              .buy(80)
+              .stock("IBM")
+              .on("NYSE")
+              .at(125.00)
+              .sell(50)
+              .stock("GOOGLE")
+              .on("NASDAQ")
+              .at(375.00)
+              .end();
+```
+
+- 메서드 체인 기법을 사용하면 기존의 장황하고 보기 어려운 코드를 개선할 수 있다
+- 이 기법은 정적 메서드 사용을 최소화하고 메서드 이름이 인수의 이름을 대신하도록 만듦으로 이런 형식의 DSL의 가독성을 개선하는 효과를 더한다
+- 메서드 체인 기법은 메서드 체인을 구현해야 한다는 단점을 가진다
+- 들여쓰기를 강제하지 않는다는 단점도 가지고 있다
+
+### 중첩된 함수 이용
+
+```java
+Order order = order("BigBank",
+                    buy(80,
+                        stock("IBM", on("NYSE")), at(125.00)),
+                    sell(50,
+                        stock("GOOGLE", on("NASDAQ")), at(375.00)));
+```
+- 장점
+  - 메서드 체인에 비해 함수의 중첩 방식이 도메인 객체 계층 구조에 그대로 반영된다
+    - 예제에서 주문은 한 개 이상의 거래를 포함하며 각 거래는 한 개의 주식을 참조
+- 단점
+  - 결과 DSL에 더 많은 괄호를 사용해야 한다
+  - 인수 목록을 정적 메서드에 넘겨줘야 한다
+  - 선택 사항 필드가 있는 경우 이 가능성을 처리할 수 있도록 여러 메서드 오버라이드를 구현해야 한다
+  - 인수의 의미가 아니라 위치에 의해 정의 되었다
+
+### 람다 표현식을 이용한 함수 시퀀싱
