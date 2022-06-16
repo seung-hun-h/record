@@ -319,3 +319,100 @@ Order order = order("BigBank",
   - 인수의 의미가 아니라 위치에 의해 정의 되었다
 
 ### 람다 표현식을 이용한 함수 시퀀싱
+```java
+Order order = order(o -> {
+  o.forCustomer("BigBank");
+  o.buy(t -> {
+    t.quantity(80);
+    t.price(125.00);
+    t.stock(s -> {
+      s.symbol("IBM");
+      s.market("NYSE");
+    })
+  });
+  o.sell(t -> {
+    t.quantity(50);
+    t.price(375.00);
+    t.stock(s -> {
+      s.symbol("GOOGLE");
+      s.market("NASDAQ");
+    })
+  });
+})
+```
+
+- 이런 DSL을 만들기 위해서는 람다 표현식을 받아 실행해 도메인 모델을 만들어 내는 여러 빌더를 구현해야 한다
+- 장점
+  - 메서드 체인 패턴처럼 플루언트 방식으로 거래 주문을 정의한다
+  - 중첩 합수 형식처럼 다양한 람다 표현식의 중첩 수준과 비슷하게 도메인 객체 계층 구조를 유지한다
+- 단점
+  - 많은 설정 코드가 필요하다
+  - DSL자체가 자바 8 람다 표현식 문법에 의한 잡음의 영향을 받는다
+
+### 조합하기
+```java
+Order order = 
+  forCustomer("BigBank", 
+                buy(t -> t.quantity(80)
+                          .stock("IBM")
+                          .on("NYSE")
+                          .at(125.00),
+                sell(t -> t.quantity(50)
+                            .stock("GOOGLE")
+                            .on("NASDAQ")
+                            .at(125.00))));
+```
+
+- 장점
+  - 지금까지 나온 패턴의 장점을 가짐
+- 단점
+  - 여러 패턴이 사용되었기 때문에 DSL을 배우는 시간이 오래 걸린다
+
+### DSL에 메서드 참조 사용하기
+- 생략
+
+## 실행활의 자바8 DSL
+### jOOQ
+- SQL을 구현하는 내부적 DSL로 자바에 직접 내정된 형식 안전 언어이다
+- 데이터베이스 스키마를 역공한하는 소스코드 생성기 덕분에 자바 컴파일러가 복잡한 SQL 구문의 형식을 확인할 수 있다
+
+```sql
+SELECT * FROM BOOK
+WHERE BOOK.PUBLISHED_IN = 2016
+ORDER BY BOOK.TITLE:
+```
+
+```java
+create.selectFrom(BOOK)
+      .where(BOOK.PUBLISHED_IN.eq(2016))
+      .orderBy(BOOK.TITLE);
+```
+
+- jOOQ의 또 다른 장점은 스트림 API와 조합해 사용할 수 있다는 것이다
+
+![image](https://user-images.githubusercontent.com/60502370/174195906-9b69a76d-2efb-4d26-9404-abafaf09b011.png)
+
+### 큐컴버
+- 행위 주도 개발(BDD)는 테스트 주도 개발의 확장으로 다양한 비즈니스 시나리오를 구조적으로 서술하는 간단한 도메인 전용 스크립팅 언어를 사용한다
+- 작성된 명령문을 실행할 수 있는 테스트 케이스로 변환한다
+- 결과물은 테스트와 동시에 비즈니스 기능의 수용 기준이 된다
+- 도메인 전문가와 프로그래머 사이의 간격을 줄인다
+
+```text
+Feature: Buy stock
+  Scenario: Buy 10 IBM stocks
+    Given the price of a "IBM" stock is 125$
+    When I buy 10 "IBM"
+    Then the order value should be 1250$
+```
+
+- 큐컴버는 전제 조건 정의(Given), 시험하려는 도메인 객체의 실질 호출(When), 테스트 케이스의 결과를 확인하는 어설션(Then) 세 가지 개념을 사용한다
+
+### 스프링 통함
+- 유명한 엔터프라이즈 통합 패턴을 지원할 수 있도록 의존성 주입에 기반한 스플이 프로그래밍 모델을 확장한다
+- 스프링 통합의 핵심 목표는 복잡한 엔터프라이즈 통합 솔루션을 구현하는 단순한 모델을 제공하고 비동기, 메시지 주도 아키텍처를 쉽게 적용할 수 있게 돕는 것이다
+- 스프링 통합은 스프링 기반 애플리케이션 내의 경량의 원격, 메시징, 스케줄링을 지원한다
+  
+![image](https://user-images.githubusercontent.com/60502370/174196587-7d75371f-e4df-459b-ab5b-9a89a802e211.png)
+
+- 스프링 통합 DSL에서 가장 널리 사용하는 패턴은 메서드 체인이다
