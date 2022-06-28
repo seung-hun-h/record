@@ -162,4 +162,44 @@ DateTimeFormatter italianFormatter = new DateTimeFormatterBuilder()
                                     .toFormatter(Locale.ITALIAN);
 ```
 
+## 다양한 시간대와 캘린더 활용 방법
+- `java.time.ZoneId`를 사용하면 서머타임(DST)와 같은 복잡한 사항이 자동으로 처리된다
+  - ZoneId는 불변 클래스이다
+
+### 시간대 사용하기
+- 표준 시간이 같은 지역을 묶어서 시간대(time zone) 규칙 집합을 정의한다
+- ZoneRules 클래스에는 40개 정도의 시간대가 존재한다
+- ZoneId의 getRules()를 이용해서 해당 시간대의 규정을 획득할 수 있다
+- ZoneId는 지역을 구분하는 지역 ID이다.
+  - 지역/도시 형식으로 이루어진다
+
+- ZoneId 객체는 LocalDate, LocalDateTime, Instant를 이용해서 ZonedDateTime 인스턴스로 변환될 수 있다
+
+```java
+LocalDate date = LocalDate.of(2014, Month.MARCH, 18);
+ZonedDateTime zdt1 = date.atStartOfDay(romeZone);
+LocalDateTime dateTime = LocalDateTime.of(2014, Month.MARCH, 18, 13, 45);
+ZonedDateTime zdt2 = dateTime.atZone(romeZone);
+Instant instant = Instant.now();
+ZonedDateTime zdt3 = instant.atZone(romeZone);
+```
+
+### UTC/Greenwich 기준의 고정 오프셋
+- ZoneId의 서브 클래스인 ZoneOffset 클래스로 런던의 그리니치 0도 자오선과 시간값의 차이를 표현할 수 있다
+
+```java
+ZoneOffset newYorkOffset = ZoneOffset.of("-05:00");
+```
+
+- 하지만 ZoneOffset은 서머타임을 제대로 처리할 수 없으므로 권장하지 않는 방식이다
+- ZoneOffset은 오프셋으로 날짜와 시간을 표현하는 OffsetDateTime을 만둘 수 있다
+
+```java
+LocalDateTime dateTime = LocalDateTime.of(2014, Month.MARCH, 18, 13, 45);
+OffsetDateTime dateTimeInNewYork = OffsetDateTime.of(date, newYorkOffset);
+```
+
+### 대안 캘린더 시스템 사용하기
+- ISO-8601 캘린더 시스템은 실질적으로 전 세계에서 통용된다.
+- 자바 8에서는 추가로 ThaiBuddihistDate, MinguoDate, JapaneseDate, HijrahDate를 제공한다
 
