@@ -58,3 +58,97 @@
   - 결과적으로 호환성을 깨지 않고는 관련 API를 바꾸기 아주 어려운 상황이 되었다
 - 이러한 문제들로 인해 JDK 자체도 모듈화할 수 있는 자바 모듈 시스템 설계의 필요성이 제기되었다
   - JDK에서 필요한 부분만 골라 사용하고, 클래스 경로를 쉽게 유추할 수 있으며, 플랫폼을 진화시킬 수 있는 강력한 캡슐화를 제공할 새로운 건축 구조가 필요했다
+
+## 자바 모듈: 큰 그림
+- 자바 8은 모듈이라는 새로운 자바 프로그램 구조 단위를 제공한다
+  - module이라는 새 키워드에 이름과 바디를 추가해서 정의한다
+  - 모듈 디스크립터는 module-info.java라는 특별한 파일에 저장된다
+  - 모듈 디스크립터는 보통 패키지와 같은 폴터에 위치하며 한 개 이상의 패키지를 서술하고 캡슐화할 수 있지만 단순한 상황에서는 이들 패키지 중 한 개만 외부로 노출시킨다.
+
+![image](https://user-images.githubusercontent.com/60502370/177288545-39937f16-0cda-4aa6-af09-462db7c185bb.png)
+
+- 메이븐 같은 도구를 사용할 때 모듈의 많은 세부 사항을 IDE가 처리하며 사용자에게는 잘 드러나지 않는다
+
+## 모듈 정의와 구문들
+### module
+- module 지시어르 이용해 모듈을 정의할 수 있다.
+
+```java
+module com.iteratrlearning.application {
+
+}
+```
+### requires
+- requires 구문은 컴파일 타임과 런타임에 한 모듈이 다른 모듈에 의존함을 정의한다
+
+```java
+module com.iteratrlearning.application {
+  requires com.iteratlearning.ui;
+}
+```
+- com.iteratlearning.application은 com.iteratlearning.ui에 의존한다
+
+### exports
+- exports 구문은 지정한 패키지를 다른 모듈에서 이용할 수 있도록 공개 형식으로 만든다
+  - 아무 패키지도 공개하지 않는 것이 기본 설정이다
+- exports는 패키지명을 인수로 받고, requires는 모듈명을 인수로 받는다
+
+```java
+module com.iteratrlearning.ui {
+  requires com.iteratlearning.core;
+  exports com.iteratrlearning.ui.panels;
+  exports com.iteratrlearning.ui.widgets;
+}
+```
+
+### requires transitive
+- requires-transitive를 사용하면 다른 모듈이 제공하는 공개 형식을 한 모듈에서 사용할 수 있다고 지정할 수 있다
+
+```java
+module com.iteratrlearning.ui {
+  requires transitive com.iteratlearning.core;
+  exports com.iteratrlearning.ui.panels;
+  exports com.iteratrlearning.ui.widgets;
+}
+```
+
+```java
+module com.iteratrlearning.application {
+  requires com.iteratlearning.ui;
+}
+```
+- com.iteratrlearning.application 모듈은 com.iteratlearning.core에서 노출한 공개 형식에 접근할 수 있다
+
+
+### exports to
+- exports to 구문을 이용해 사용자에게 공개할 기능을 제한함으로 가시성을 좀 더 종교하게 제어할 수 있다
+
+```java
+module com.iteratrlearning.ui {
+  requires transitive com.iteratlearning.core;
+  exports com.iteratrlearning.ui.panels;
+  exports com.iteratrlearning.ui.widgets 새
+    com.iteratrlearning.ui.widgetuser;
+}
+```
+
+- com.iteratrlearning.ui.widgets의 접근 권한을 가진 사용자의 권한을 com.iteratrlearning.ui.widgetuser로 제한할 수 있다
+
+### open과 opens
+- 모듈 선언에 open 한정자를 이용하면 모든 패키지를 다른 모듈에 반사적으로 접근을 허용할 수 있다(?)
+  - 반사적인 접근 권한을 주는 것 이외에 open 한정자는 모듈의 가시성에 다른 영향을 미치지 않는다
+
+```java
+open module com.iteratrlearning.ui {
+  
+}
+```
+- 자바 9 이전에는 리플렉션으로 객체의 비공개 상태를 확인할 수 있었다
+  - 진정한 의미의 캡슐화는 존재하지 않았다
+- 자바 9에서는 기본적으로 리플렉션이 이런 기능을 허용하지 않는다(?)
+  - 다른 모듈에서는 불가능
+  - 같은 모듈은 가능
+  - Jackson ObjectMapper는 기본생성자가 필요하지만 private으로 해도 잘 동작하는데 왜일까?
+
+### uses와 provides
+- provides 구문으로 서비스 제공자를 uses 구문으로 서비스 소비자를 지정할 수 있다
