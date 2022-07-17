@@ -78,3 +78,123 @@ static TrainJourney append(TrainJourney a, TrainJourney b) {
 ```
 
 - 위 함수는 명확하게 함수형이며 기존 자료구조를 변경하지 않는다.
+
+## 스트림과 게으른 평가
+- 스트림은 단 한 번만 소비할 수 있어서 재귀적으로 정의할 수 없다.
+
+### 자기 정의 스트림
+- 소수 스트림 생성 코드
+
+```java
+public static Stream<Integer> primes(int n) {
+  return Stream.iterate(2, i -> i + 1)
+                .filter(MyMathUtils::isPrime)
+                .limit(n);
+}
+
+//MyMathUtils
+public static boolean isPrime(int candidate) {
+  int candidateRoot = (int) Math.sqrt((double) candidate);
+  return IntStream.rangeClosed(2, candidateRoot)
+                  .noneMatch(i -> candidate % i == 0);
+}
+```
+- 위 코드는 candidate로 정확히 나누어 떨어지는 지 매번 모든 수를 반복 확인하므로, 좋은 코드는 아니다
+- 이론적으로 재귀 스트림으로 소수 스트림을 생성할 수 있다
+  1. 소수를 선택할 숫자 스트림이 필요하다
+  2. 스트림에서 첫 번째 수를 가져온다. 이 숫자는 소수다
+  3. 스트림의 꼬리에서 가져온 수로 나누어떨어지는 모둔 수를 걸러 제외시킨다
+  4. 남은 숫자만 포함하는 새로운 스트림에서 소수를 찾는다. 다시 1번부터 다시 이 과정을 반복하게된다
+
+```java
+// 1. 스트림 숫자 얻기
+static IntStream numbers() {
+  return IntStream.iterate(2, n -> n + 1);
+}
+
+// 2. 머리 획득
+static int head(IntStream numbers) {
+  return numbers.findFirst().getAsInt();
+}
+
+// 3. 꼬리 필터링
+static IntStream tail(IntStream numbers) {
+  return numbers.skip(1);
+}
+
+// 4. 재귀적으로 소수 스트림 생성
+static IntStream primes(IntStream numbers) {
+  int head = head(numbers);
+  return IntStream.concat(
+    IntStream.of(head),
+    primes(tail(numbers).filter(n -> n % head != 0))
+  );
+}
+```
+- 4 단계 코드를 실행하면 예외가 발생한다
+  - "java.lang.IllegalStateException: stream has already been operated upon or closed"
+  - 스트림의 머리와 꼬리로 분리하는 두 개의 최종 연산 findFirst, skip을 사용했기 때문이다.
+  - 최종 연산을 스트림에 호출하면 스트림은 완전히 소비된다
+
+**게으른 평가**
+- 그리고 IntStream.concat 내부에서 primes를 재귀적을 호출하여 무한 재귀에 빠진다
+- 자바 8의 스트림의 재귀적 정의를 허용하지 않는 규칙 덕분에 데이터베이스 같은 질의를 표현하고 병렬화할 수 있는 능력을 얻을 수 있다
+- concat의 두 번째 인수인 primes를 게으르게 평가하여 문제를 해결할 수 있다
+  - 소수를 처리할 필요가 있을 때만 스트림을 실제로 평가한다
+
+### 게으른 리스트 만들기
+- 자바 8의 스트림은 게으르다
+  - 스트림에 일련의 연산을 적용하면 연산이 수행되지 않고 일단 저장된다
+  - 스트림에 최종 연산을 적용해서 실제 계산을 해야 하는 상황에서만 실제 연산이 이루어진다
+  - 게으른 특성 덕분에 각 연산별로 스트림을 탐색할 필요 없이 한 번에 여러 연산을 처리할 수 있다
+
+- 게으른 리스트는 스트림과 비슷한 개념으로 구성되며, 고차원 함수도 지원한다
+
+```java
+class LazyList<T> implements MyList<T> {
+  final T head;
+  final Supplier<MyList<T>> tail;
+  public LazyList(T head, Supplier<MyList<T>> tail) {
+    this.head = head;
+    this.tail = tail;
+  }
+
+  public T head() {
+    return head;
+  }
+
+  public MyList<T> tail() {
+    return tail.get();
+  }
+
+  public boolean isEmpty() {
+    return false;
+  }
+}
+```
+
+- 소수 생성
+
+```java
+public static MyList<Integer> primes(MyList<Integer> numbers) {
+  return new LazyList<>(
+    numbers.head(),
+    () -> primes(
+      numbers.tail()
+              .filter(n -> n % numbers.head() != 0)
+    )
+  );
+}
+```
+- 위 코드에서 MyList는 filter 메서드를 정의하지 않으므로 컴파일 에러가 발생한다
+
+**게으른 필터 구현**
+```java
+public MyList<T> filter(Predicate<T> p) {
+  return isEmpty() ?
+          this:
+          p.test(head()) ?
+            new LazyList<>(head(), () -> tail.filter(p)) :
+            tail().filter(p);
+}
+```
