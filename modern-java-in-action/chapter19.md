@@ -198,3 +198,125 @@ public MyList<T> filter(Predicate<T> p) {
             tail().filter(p);
 }
 ```
+
+## 패턴 매칭
+- 패턴 매칭은 함수형 프로그래밍을 구분하는 또 하나의 중요한 특징이다
+  - 정규표현식과 관련된 패턴 매칭과는 다르다
+
+```java
+// 함수형 프로그래밍 패턴 매칭
+f(0) = 1
+f(n) = n * f(n - 1) // 그렇지 않으면
+// 자바 패턴 매칭
+if(...) {
+
+} else if (...) {
+
+} else {
+
+}
+
+switch(some) {
+  case ...:
+  case ...:
+  ...
+}
+```
+
+- 숫자와 바이너리 연산자로 구성된 간단한 수학언어가 있다고 가정
+  - 표현식을 단순화하는 메서드를 구현해야 한다
+  - 5 + 0 은 5로 단순화 할 수 있다
+  - 즉, `new BinOp("+", new Number(5), new Number(0))`은 `new Number(5)`로 단순화 할 수 있다
+
+```java
+Expr simplifyExpression(Expr expr) {
+  if (expr instanceOf BinOp
+      && ((BinOp)expr).opname.equals("+")
+      && ((BinOp)expr).right instance Of Number
+      && ...
+    ) {
+      return (BinOp)expr.left;
+    }
+}
+```
+- 위 코드는 깔끔하지 않다
+
+### 방문자 디자인 패턴
+- 자바에서는 방문자 디자인 패턴으로 자료형을 언랩할 수 있다
+  - 특히 특정 데이터 형식을 방문하는 알고리즘을 캡슐화하는 클래스를 따로 만들 수 있다
+
+
+- 방문자 클래스는 지정된 데이터 형식의 인스턴스를 입력 받는다
+- 그리고 인스턴스의 모든 멤버에 접근한다
+
+```java
+class BinOp extends Expr {
+  ...
+  public Expr accept(SimplifyExprVisitor v) {
+    return v.visit(this);
+  }
+}
+
+public class SimplifyExprVisitor {
+  ...
+  public Expr visit(BinOp e) {
+    if ("+".equals(e.opname) && e.right instanceOf Number && ... ) {
+      return e.left;
+    }
+    return e;
+  }
+}
+```
+
+### 패턴 매칭의 힘
+- 패턴 매칭으로 좀 더 단순하게 해결 할 수 있다
+
+```s
+def simplifyExpression(expr: Expr): Expr = expr match {
+  case BinOp("+", e, Number(0)) => e
+  case BinOp("*", e, Number(1)) => e
+  case BinOp("/", e, Number(1)) => e
+  case _ => expr
+}
+```
+
+## 기타 정보
+### 캐싱 또는 기억화
+- 트리 형식의 토폴로지를 갖는 네트워크 범위 내에서 존재하는 노드위 수를 계산하는 `computeNumberOfNodes(Range`라는 부작용 없는 메서드가 존재한다고 가정한다
+- 이 메서드는 구조체를 재귀적으로 탐색해야하기 때문에 노드 계산 비용이 비싸다
+- 참조 투명성이 유지되는 상황이라면 기억화(메모이제이션)를 사용하여 비용을 줄일 수 있다
+
+```java
+final Map<Range, Integer> numberOfNodes = new HashMap<>();
+Integer computeNumberOfNodesUsingCache(Range range) {
+  Integer result = numberOfNodes.get(range);
+  if (result != null) {
+    return result;
+  }
+
+  result = computeNumberOfNodes(range);
+  numberOfNodes.put(range, result);
+  return result;
+}
+
+Integer computeNumberOfNodesUsingCache(Range range) {
+  return numberOfNodes.computeIfAbsent(range, this::computeNumberOfNodes);
+}
+```
+
+- `computeNumberOfNodesUsingCache`는 참조 투명성을 갖는다
+- 하지만 numberOfNodes는 공유된 가변 상태이며, HashMap은 동기화 되지 않았으므로, 스레드 안전성이 없는 코드이다
+  - ConcurrentHashMap을 사용할 수는 있지만 성능이 크게 저하될 수도 있다
+- 함수형 프로그래밍을 사용해서 동시성과 가변 상태가 만나는 상황을 완전히 없앨 수 있다
+  - 캐싱 같은 저수준 성능 문제는 해결되지 않는다.
+  - 하지만 호출하려는 메서드가 공유된 가변 상태를 포함하지 않음을 미리 알 수 있으므로 동기화 등을 신경 쓸 필요가 없어진다
+
+### 같은 객체를 반환함은 무엇을 의미하는가
+- 참조 투명성이란 인수가 같다면 결과도 같아야한다 라는 구칙을 만족함을 의미한다
+- 자료구조를 변경하지 않는 상황에서 참조가 다르다는 것은 큰 의미가 없다. 논리적으로 두 객체는 같다고 판단할 수 있다
+
+### 콤비네이터
+- 함수형 프로그래밍에서는 두 함수를 인수로 받아 다른 함수를 반환하는 등 고차원 함수를 많이 사용한다
+- 함수의 기능을 조합하는 것을 콤비네이터라고 한다
+- 자바 8에서는 콤비네이터의 영향을 받았다
+  - comparing, andThen, compose 등이 고차원 함수를 제공한다  
