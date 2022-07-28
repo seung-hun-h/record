@@ -223,3 +223,70 @@ public class CallbackStyleExample {
   - 리액티브 형식의 API는 보통 한 결과가 아니라 일련의 이벤트에 반응하도록 설계되었으므로 `Future`를 이용하는 것이 더 적절하다
 
 - 리액티브 형식의 비동기 API는 자연스럽게 일련의 값을, Future 형식의 API는 일회성의 값을 처리하는데 적합하다
+
+### 잠자기(그리고 기타 블로킹 동작)는 해로운 것으로 간주
+- 사람과 상호작용하거나 어떤 일이 일정 속도로 제한되어 일어나는 상황의 애플리케이션을 만들때 `sleep()` 메서드를 사용할 수 있다 
+  - 스레드는 잠들어도 시스템 자원을 점유한다
+  - 스레드 풀에서 잠자는 태스크는 다른 태스크가 시작되지 못하게 막으므로 자원을 소비한다
+- 스레드 풀에서 잠자는 스레드 뿐 아니라 모든 블록 동작도 자원을 소비한다
+  - 블록은 다른 태스크가 어떤 동작을 완료하기를 기다리는 동작(`Future.get()` 등), 외부 상호작용(네트워크, 사용자 입력 대기) 두 가지로 나눌 수 있다
+- 이상적으로는 이러한 상황을 막기위해 태스크에서 기다리는 일을 만들지 않거나 코드에서 예외를 일으키는 방법으로 처리할 수 있다
+- 태스크를 앞과 뒤 부분으로 나누고 블록되지 않을 때만 뒷 부분을 자바가 스케줄링하도록 요청할 수 있다
+
+**코드A**
+
+```java
+work1();
+Thread.sleep(1000);
+work2();
+```
+- `work1` 실행 후 스레드를 점유한 상태에서 10초를 잔다
+- 그리고 꺠어나서 `work2`를 실행한다음 작업을 종료하고 워커 스레드를 해제한다
+
+**코드B**
+```java
+public class ScheduledExecutorServiceExample {
+    public static void main(String[] args) {
+        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+
+        work1();
+        scheduledExecutorService.schedule(
+            ScheduledExecutorServiceExample::work2, 10, TimeUnit.SECONDS
+        ); // work1이 끝난 다음 10초 뒤에 work2를 개별 태스크로 스케줄함
+
+        scheduledExecutorService.shutdown();
+    }
+}
+```
+- `work1`을 실행하고 종료한다. 10초 뒤에 `work2`가 실행될 수 있도록 큐에 추가한다
+- 10초 뒤 `work2`가 실행된다
+- 코드A와 다르게 10초 동안 스레드를 점유하지 않는다
+
+- 가능하면 I/O 작업에서도 코드B와 같은 원칙을 적용하는 것이 좋다
+  - 고전적으로 읽기 작업을 기다리는 것이 아니라, 읽기 시작 메서드를 호출하고 읽기 작업이 끝나면 이를 처리할 다음 태스크를 런타임 라이브러리에 스케줄하도록 요청하고 종료한다
+- 자바 `CompletableFuture` 인터페이스는 이전에 살펴본 `Future`에 `get()`을 이용해 명시적으로 블록하지 않고 콤비테이터를 사용함으로 이런 형식의 코드를 런타임 라이브러리 내에 추상화한다
+
+### 현실성 확인
+- 모든 동작을 비동기 호출로 구현한다면 병렬 하드웨어를 최대한 활용할 수 있다
+- 하지만 현실적으로 모든 것은 비동기라는 설계 원칙을 어겨야 한다
+- 실제로 자바의 개선된 동시성 API를 이용해 유익을 얻을 수 있는 상황을 찾아보고 모든 API를 비동기로 만드는 것을 따지지 말고 개선된 동시성 API를 사용해 보길 권장한다
+
+
+### 비동기 API에서 예외는 어떻게 처리하는가?
+- `Future`나 리액티브 형식의 비동기 API에서 호출된 메서드의 실제 바디는 별도의 스레드에서 호출되며 이때 발생하는 어떤 에러는 이미 호출자의 실행 범위와는 관계가 없는 상황이 된다
+- `CompletableFuture`에서는 런타임 `get()` 메서드에서 예외를 처리할 수 있는 기능을 제공하며 예외에서 회복할 수 있도록 `exceptionally()` 같은 메서드도 제공한다
+- 비동기 API에서는 return 대신 기존 콜백이 호출되므로 예외가 발생했을 때 실행될 추가 콜백을 만들어 인터페이스를 바꿔야 한다
+
+```java
+void f(int x, Consumer<Integer> dealWithResult, Consumer<Integer> dealWithException);
+```
+
+- 콜백이 여러 개면 이를 따로 제공하는 것보다는 한 객체로 이 메서드를 감싸는 것이 좋다
+  - 자바 9 Flow API에서는 여러 콜백을 한 객체로 감싼다.(`Subscriber<Integer> s`)
+
+```java
+void onComplete();
+void onError(Throwable throwable);
+void onNext(T item);
+```
+- complete, error, next 는 어떠한 일이 발생했음을 말하는 것인데 이를 이벤트라 한다
