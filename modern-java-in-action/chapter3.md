@@ -1,32 +1,5 @@
-## 목차
-- [람다 표현식](#람다-표현식)
-  - [람다란 무엇인가?](#람다란-무엇인가)
-  - [어디에, 어떻게 람다를 사용할까?](#어디에-어떻게-람다를-사용할까)
-    - [함수형 인터페이스](#함수형-인터페이스)
-    - [함수 디스크립터](#함수-디스크립터)
-  - [람다 활용: 실행 어라운드 패턴](#람다-활용-실행-어라운드-패턴)
-    - [1단계: 동작 파라미터화를 기억하라](#1단계-동작-파라미터화를-기억하라)
-    - [2단계: 함수형 인터페이스를 이용해서 동작 전달](#2단계-함수형-인터페이스를-이용해서-동작-전달)
-    - [3단계: 동작 실행](#3단계-동작-실행)
-    - [4단계: 람다 전달](#4단계-람다-전달)
-  - [함수형 인터페이스](#함수형-인터페이스-1)
-    - [예외, 람다, 함수형 인터페이스의 관계](#예외-람다-함수형-인터페이스의-관계)
-  - [형식 검사, 형식 추론, 제약](#형식-검사-형식-추론-제약)
-    - [형식 검사](#형식-검사)
-    - [같은 람다, 다른 함수형 인터페이스](#같은-람다-다른-함수형-인터페이스)
-    - [형식 추론](#형식-추론)
-    - [지역 변수 사용](#지역-변수-사용)
-    - [지역 변수의 제약](#지역-변수의-제약)
-  - [메서드 참조](#메서드-참조)
-    - [요약](#요약)
-    - [생성자 참조](#생성자-참조)
-  - [람다 표현식을 조합할 수 있는 유용한 메서드](#람다-표현식을-조합할-수-있는-유용한-메서드)
-    - [Comparator 조합](#comparator-조합)
-    - [Predicate 조합](#predicate-조합)
-    - [Function 조합](#function-조합)
-
-# 람다 표현식
-## 람다란 무엇인가?
+# 3. 람다 표현식
+## 3.1 람다란 무엇인가?
 - 람다 표현식은 메서드로 전달할 수 있는 익명 함수를 단순화한 것이다
 - 람다의 특징
   - 익명
@@ -38,6 +11,8 @@
     - 람다 표현식을 메서드 인수로 전달하거나 변수로 저장할 수 있다
   - 간결성
     - 익명 클래스처럼 자질구레한 코드를 구현할 필요가 없다
+
+- 람다를 사용하면 동작 파라미터화를 이용할 때 익명 클래스를 구현한 것처럼 판에 박힌 코드를 반복적으로 작성하지 않고 간결하게 표현할 수 있다
 
 ```java
 // 기존 코드
@@ -56,12 +31,14 @@ Comparator<Apple> byWeight = (Apple a1, Apple a2) -> a1.getWeight().compareTo(a2
     <img width="400" alt="image" src="https://user-images.githubusercontent.com/60502370/166128611-eb840db4-efd2-479a-904e-5b6e8123d297.png">
 </p>
 
-## 어디에, 어떻게 람다를 사용할까?
+## 3.2 어디에, 어떻게 람다를 사용할까?
 - 함수형 인터페이스라는 문맥에서 람다 표현식을 사용할 수 있다
 
-### 함수형 인터페이스
+### 3.2.1 함수형 인터페이스
 - `Predicate<T>`가 함수형 인터페이스 중 하나이다
+  - `Comparator`, `Runnable`, `Callable`도 함수형 인터페이스이다
 - 함수형 인터페이스는 오직 하나의 추상 메서드만 지정한다
+  - 디폴트 메서드나 정적 메서드는 추상 메서드가 아니므로 해당 메서드가 구현되어 있어도 함수형 인터페이스이다
 
 ```java
 public interface Predicate<T> {
@@ -75,7 +52,7 @@ public interface Predicate<T> {
   - 즉, **전체 표현식을 함수형 인터페이스의 인스턴스로 취급할 수 있다**
   - 기술적으로 따지면 함수형 인터페이스를 구현한 클래스의 인스턴스이다.
 
-### 함수 디스크립터
+### 3.2.2 함수 디스크립터
 - 람다 표현식의 시그니처를 서술하는 메서드를 함수 디스크립터라 부른다
   - `() -> void`: 파라미터 리스트가 없으며 void를 반환하는 함수
   - `(Apple, Apple) -> int`: 두 개의 Apple을 인수로 받아 int를 반환하는 함수
@@ -83,7 +60,7 @@ public interface Predicate<T> {
   - 함수형 인터페이스임을 가리키는 어노테이션이다
   - 어노테이션을 선언했지만 실제로 함수형 인터페이스가 아닌 경우 컴파일 에러를 발생시킨다
 
-## 람다 활용: 실행 어라운드 패턴
+## 3.3 람다 활용: 실행 어라운드 패턴
 - 실제 자원을 처리하는 코드를 설정과 정리 두 과정이 둘러 싸는 형태의 코드를 **실행 어라운드 패턴**이라 한다.
 - 실행 어라운드 패턴에는 try-with-resources 구문을 사용하는 것이 좋다
 
@@ -91,7 +68,7 @@ public interface Predicate<T> {
     <img width="400" alt="image" src="https://user-images.githubusercontent.com/60502370/166129056-a0f7c962-ad40-4fd1-8503-583c82f3b2eb.png">
 </p>
 
-### 1단계: 동작 파라미터화를 기억하라
+### 3.3.1 1단계: 동작 파라미터화를 기억하라
 - 현재 코드는 한 번에 한 줄만 읽을 수 있다.
 - 한 번에 두 줄을 읽거나 가장 자주 사용되는 단어를 반홚하는 등 변하는 요구사항에 대응해야 할 수 있어야 한다.
 - 실행, 정리 과정은 재활용하고, 다른 동작을 수행하도록 명령할 수 있다면 해결할 수 있다.
@@ -105,7 +82,7 @@ String result = processFile((BufferedReader br) -> br.readLine());
 String result = processFile((BufferedReader br) -> br.readLine() + br.readLine());
 ```
 
-### 2단계: 함수형 인터페이스를 이용해서 동작 전달
+### 3.3.2 2단계: 함수형 인터페이스를 이용해서 동작 전달
 - 함수형 인터페이스 자리에 람다를 사용할 수 있다
   - `BufferedReader -> String`과 `IOException`을 던질 수 있는 시그니처와 일치하는 함수형 인터페이스를 만들어야 한다
 
@@ -120,7 +97,7 @@ public String processFile(BufferedReaderProcessor p) throws IOException {
 }
 ```
 
-### 3단계: 동작 실행
+### 3.3.3 3단계: 동작 실행
 ```java
 public String processFile(BufferedReaderProcessor p) throws IOException {
     try (BufferedReader br = new BufferedReader(new FileReader("data.txt"))) {
@@ -129,7 +106,7 @@ public String processFile(BufferedReaderProcessor p) throws IOException {
 }
 ```
 
-### 4단계: 람다 전달
+### 3.3.4 4단계: 람다 전달
 ```java
 // 한 줄 읽기
 String result = processFile((BufferedReader br) -> br.readLine());
@@ -138,15 +115,15 @@ String result = processFile((BufferedReader br) -> br.readLine());
 String result = processFile((BufferedReader br) -> br.readLine() + br.readLine());
 ```
 
-## 함수형 인터페이스
+## 3.4 함수형 인터페이스 사용
 <p align=middle>
     <img width="600" alt="image" src="https://user-images.githubusercontent.com/60502370/166129344-4faa9c1b-b6e2-48f4-9b1f-6b88ff1251f3.png">
 </p>
 
-### 예외, 람다, 함수형 인터페이스의 관계
-- 함수형 인터페이스는 확인된 예외를 던지는 동작을 허용하지 않는다
-- 예외를 던지는 람다 표현식을 만드려면 확인된 예외를 선언하는 함수형 인터페이스를 직접 정의하거나 람다를 try/catch 블록으로 감싸야 한다
-- 우리가 정의한 확인된 예외를 던지는 함수형 인터페이스는 아래와 같다  
+- 예외, 람다, 함수형 인터페이스의 관계
+  - 함수형 인터페이스는 확인된 예외를 던지는 동작을 허용하지 않는다
+  - 예외를 던지는 람다 표현식을 만드려면 확인된 예외를 선언하는 함수형 인터페이스를 직접 정의하거나 람다를 try/catch 블록으로 감싸야 한다
+  - 우리가 정의한 확인된 예외를 던지는 함수형 인터페이스는 아래와 같다  
 
 ```java
 @FunctionalInterface
@@ -166,8 +143,8 @@ Fuction<BufferedReader, String> f = (BufferedReader b) -> {
 }
 ```
 
-## 형식 검사, 형식 추론, 제약
-### 형식 검사
+## 3.5 형식 검사, 형식 추론, 제약
+### 3.5.1 형식 검사
 - 람다가 사용되는 컨텍스트를 이용해서 람다의 형식을 추론할 수 있다
   - 컨텍스트: 람다가 전달될 메서드 파라미터나 람다가 할당되는 변수 등
 - 어떤 컨텍스트에서 기대되는 람다 표현식의 형식을 **대상 형식(target type)**이라고 부른다.
@@ -180,8 +157,14 @@ List<Apple> heavierThan150g = filter(inventory, (Apple apple) -> apple.getWeight
     <img width="500" alt="image" src="https://user-images.githubusercontent.com/60502370/166129821-b3cd49aa-ef49-46d4-ab1a-3231aefee818.png">
 </p>
 
-### 같은 람다, 다른 함수형 인터페이스
-- **대상 형식**이라는 특징 때문에 같은 람다 표현식이더라도 호환되는 추상 메서드를 가진 다른 함수형 인터페이스로 사용될 수 있다
+1. `filter` 메서드의 선언을 확인한다
+2. `filter` 메서드는 두 번째 파라미터로 `Predicate<Apple>` 형식(대상 형식)을 기대한다
+3. `Predicate<Apple>`는 `test`라는 한 개의 추상 메서드를 정의하는 함수형 인터페이스다
+4. `test` 메서드는 `Apple`을 받아 `boolean`을 반환하는 함수 디스크립터를 묘사한다
+5. `filter` 메서드로 전달된 인수는 이와 같은 요구사항을 만족해야 한다
+
+### 3.5.2 같은 람다, 다른 함수형 인터페이스
+- **대상 형식**이라는 특징 때문에 다른 함수형 인터페이스라도 대상 형식만 같다면 호환된다
   - `Callable`과 `PribilegedAction`은 인수를 받지 않고 제네릭 형식 T를 반환하는 함수를 정의 한다
 
 ```java
@@ -199,10 +182,10 @@ PrivilegedAction<Integer> p = () -> 42;
 
 - 할당문 컨텍스트, 메서드 호출 컨텍스트, 형변환 컨텍스트 등으로 람다 표현식의 형식을 추론할 수 있다
 
-### 형식 추론
+### 3.5.3 형식 추론
 - 자바 컴파일러는 람다 표현식이 사용된 컨텍스트(대상 형식)를 이용해서 람다 표현식과 관련된 함수형 인터페이스를 추론한다
-  - 대상 형식을 이용해서 함수 디스크림터를 알 수 있으므로, 컴파일러는 람다의 시그니처도 추론할 수 있다
-- 컴파일러가 람다 표현식의 파라미터 형식에 접근할 수 있으므로 람다 문법에서 이를 생략할 수 있다
+  - 대상 형식을 이용해서 함수 디스크립터를 알 수 있으므로, 컴파일러는 람다의 시그니처도 추론할 수 있다
+- 컴파일러가 람다 표현식의 파라미터 형식에 접근할 수 있으므로 람다 문법에서 형식 생략할 수 있다
 
 ```java
 List<Apple> greenApples = filter(inventory, apple -> GREEN.equals(apple.getColor()));
@@ -211,7 +194,7 @@ List<Apple> greenApples = filter(inventory, apple -> GREEN.equals(apple.getColor
 - 상황에 따라 형식을 포함하는 것이 좋을 수도 있고, 그렇지 않을 수도 있다.
   - 가독성을 생각해서 개발자가 스스로 결정하는 것이 좋다
 
-### 지역 변수 사용
+### 3.5.4 지역 변수 사용
 - **람다 캡처링**
   - 람다 표현식에서는 익명 함수처럼 자유 변수(파라미터로 넘겨진 변수가 아닌 외부에서 정의된 변수)를 활용할 수 있다
 
@@ -222,7 +205,7 @@ Runnable r = () -> System.out.println(portNumber);
 
 - 람다 표현식은 한 번만 할당할 수 있는 지역 변수를 캡처할 수 있다
   - 명시적으로 final로 선언된 경우
-  - 실질적으로 final로 선언된 변수와 똑같이 사용되어야 한다.
+  - 실질적으로 final로 선언된 변수와 똑같이 사용되어야 한다
 
 - 지역 변수는 실질적으로 final이 아니면 컴파일 에러를 뱉지만, 인스턴스 변수나 클래스 변수(static)인 경우에는 final이 아니더라도 에러를 뱉지 않는다.
 
@@ -264,7 +247,7 @@ Runnable r = () -> System.out.println(portNumber);
 > 클로저란 함수의 비지역 변수를 자유롭게 참조할 수 있는 함수의 인스턴스를 가리킨다. 예를 들어, 클로저를 다른 함수의 인수로 전달할 수 있다. 클로저는 클로저 외부에 정의된 변수의 값에 접근하고, 값을 바꿀 수 있다.<br>
 > 자바 8의 람다와 익명 클래스는 클로저와 비슷한 동작을 수행한다. 람다와 익명 클래스 모두 메서드의 인수로 전달될 수 있으며 자신의 외부 영역의 변수에 접근할 수 있다. 다만 람다와 익명 클래스는 람다가 정의된 메서드의 지역 변수의 값은 바꿀 수 없다.
 
-## 메서드 참조
+## 3.6 메서드 참조
 - 메서드 참조를 이용하면 기존의 메서드 정의를 재활용해서 람다처럼 전달할 수 있다
 - 때로는 람다 표현식보다 메서드 참조를 사용하는 것이 더 가독성이 좋고 자연스러울 수 있다
 
@@ -275,7 +258,7 @@ inventory.sort((Apple a1, Apple a2) -> a1.getWeight().compareTo(a2.getWeight()))
 inventory.sort(comparing(Apple::getWeight));
 ```
 
-### 요약
+### 3.6.1 요약
 - 메서드 참조는 특정 메서드만을 호출하는 람다의 축약형이다
 - 메서드 참조를 사용하면 기존 메서드 구현으로 람다 표현식을 만들 수 있다
 - 메서드 명을 참조함으로써 가독성을 높일 수 있다
@@ -291,7 +274,7 @@ inventory.sort(comparing(Apple::getWeight));
 
 - 컴파일러는 람다 표현식의 형식을 검사하던 방식과 비슷한 과정으로 메서드 참조가 이루어진다
 
-### 생성자 참조
+### 3.6.2 생성자 참조
 - `ClassName::new`처럼 클래스명과 new 키워드를 이용해서 기존 생성자의 참조를 만들 수 있다
 
 ```java
@@ -355,13 +338,13 @@ public static Fruit giveMeFruit(String fruit, Integer weight) {
 }
 ```
 
-## 람다 표현식을 조합할 수 있는 유용한 메서드
+## 3.8 람다 표현식을 조합할 수 있는 유용한 메서드
 - 자바 8 API의 몇몇 함수형 인터페이스는 다양한 유틸리티 메서드를 포함한다
   - Comparator, Function, Predicate 같은 함수형 인터페이스는 람다 포현식을 조합할 수 있도록 유틸리티 메서드를 제공한다
   - 간단한 여러 개의 람다 표현식을 조합해서 복잡한 람다 표현식을 만들 수 있다는 것이다
   - 디폴트 메서드로 이러한 것들이 가능해진다
 
-### Comparator 조합
+### 3.8.1 Comparator 조합
 ```java
 Comparator<Apple> c = Comparator.comparing(Apple::getWeight);
 ```
@@ -384,7 +367,7 @@ inventory.sort(comparing(Apple::getWeight)
         .thenComparing(Apple::getCountry));
 ```
 
-### Predicate 조합
+### 3.8.2 Predicate 조합
 - Predicate 인터페이스는 복잡한 프레디케이트를 만들 수 있도록 `negate`, `and`, `or` 세 가지 메서드를 제공한다
 - `negate는` 특정 프레디케이트를 반전시킬 때 사용한다
 ```java
@@ -400,7 +383,7 @@ Predicate<Apple> redAndHeavyApple = redApple.and(apple -> apple.getWeight() > 15
                                             .or(apple -> GREEN.equals(apple.getColor()));
 ```
 
-### Function 조합
+### 3.8.4 Function 조합
 - Function 인터페이스는 `andThen`, `compose` 두 가지 디폴트 메서드를 제공한다
 - `andThen` 메서드는 주어진 함수를 먼저 적용한 결과를 다른 함수의 입력으로 전달하는 함수를 반환한다
 
