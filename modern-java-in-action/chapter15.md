@@ -331,3 +331,249 @@ System.out.println(r(a1.get(), a2.get()));
   - 박스로 원하는 연산을 표현하면 계산을 손으로 코딩한 것보다 효율적이다
   - 콤비네이터는 수학적 함수 뿐 아니라 `Future`와 리액티브 스트림 데이터에 적용할 수 있다
   - 박스와 채널 모델은 병렬성을 직접 프로그래밍하는 관점을 콤비네이터를 이용해 내부적으로 작업을 처리하는 관점으로 바꿔준다
+
+## 15.4 CompletableFuture와 콤비네이터를 이용한 동시성
+- 자바 8에서는 `Future` 인터페이스의 구현인 `CompletableFuture`를 이용해 `Future`를 조합할 수 있는 기능을 추가했다
+- `CompletableFuture`라 이름 지은 이유는 다음과 같다
+  - `Future`는 실행해서 `get()`의 결과를 얻을 수 있는 Callable로 만들어진다
+  - 하지만 `CompletableFuture`는 실행할 코드 없이 `Future`를 만들도록 허용한다
+  - 그리고 `complete()` 메서드를 이용해 나중에 어떤 값을 이용해 다른 스레드가 이를 완료할 수 있고 `get()`으로 값을 얻을 수 있도록 허용한다
+
+```java
+public class CFComplete {
+  public static void main(String[] args) throws ExecutionException, InterruptedException {
+      ExecutorService executorService = Executors.newFixedThreadPool(10);
+      int x = 1337;
+
+      CompletableFuture<Integer> a = new CompletableFuture<>();
+      executorService.submit(() -> a.complete(f(x))); // executorService.submit(() -> a.complete(g(x)));
+      int b = g(x); // f(x);
+      System.out.println(a.get() + b); // System.out.println(a + b.get());
+
+      executorService.shutdown();
+  }
+}
+```
+
+- 위 코드는 `f(x)` 혹은 `g(x)`의 실행이 끝나지 않는 상황에서 `get()`을 기다려야 하므로 프로세싱 자원을 낭비할 수 있다
+- `f(x)`와 `g(x)`를 실행하는 태스크와 합계를 계산하는 세 번째 태스크를 이용하면 문제를 해결할 수 있다
+- 하지만 합계를 구하는 태스크는 다른 두 태스크가 실행한 후 마지막에 실행해야만 한다
+- `CompletableFuture<T>`에 `thenCombine` 메서드를 사용함으로 두 연산의 결과를 더 효과적으로 더할 수 있다
+  - `CompletableFuture<V> thenCombine(CompletableFuture<U> other, BiFunction<T, U, V> fn)`
+
+```java
+public class CFComplete {
+  public static void main(String[] args) throws ExecutionException, InterruptedException {
+      ExecutorService executorService = Executors.newFixedThreadPool(10);
+      int x = 1337;
+
+      CompletableFuture<Integer> a = new CompletableFuture<>();
+      CompletableFuture<Integer> b = new CompletableFuture<>();
+      CompletableFuture<Integer> c = a.thenCombine(b, (y, z) -> y + z);
+      executorService.submit(() -> a.complete(f(x)));
+      executorService.submit(() -> b.complete(g(x)));
+
+      System.out.println(c.get());
+      executorService.shutdown();
+  }
+}
+```
+
+- `thenCombine`행이 핵심이다 
+  - a와 b의 결과를 알지 못한 상태에서 `thenCombine`은 두 연산이 끝났을 때 스레드 풀에서 실행된 연산을 만든다
+  - c 연산은 다른 두 작업이 끝날 때까지는 스레드에서 실행되지 않는다(먼저 시작되서 블록이 되는 것 아님)
+- 기존의 코드에서 발생헀던 블록 문제가 해결되었다
+
+## 15.5 발행-구독 그리고 리액티브 프로그래밍
+- `Future`는 한 번만 실행해 결과를 제공한다
+- 리액티브 프로그래밍은 시간이 흐르면서 여러 `Future` 같은 객체를 통해 여러 결과를 제공한다
+  - 온도계 객체는 매 초마다 온도 값을 반복적으로 제공한다
+  - 웹 서버 컴포넌트 응답을 기다리는 리스너 객체는 네트워크에서 HTTP 요청이 발생하길 기다렸다가 이후에 결과 데이터를 생산한다
+- 리액티브 프로그래밍이라 불리는 이유는 특정 이벤트에 반응(React)하기 떄문이다
+  - 온도가 낮아지면 히터를 킨다
+- 자바 9에서는 `java.util.concurrent.Flow`의 인터페이스에 발행-구독 모델을 적용해 리액티브 프로그래밍을 제공한다
+- 플로 API는 다음처럼 세 가지로 정리할 수 있다
+  - 구독자가 구독할 수 있는 발행자
+  - 이 연결을 구독(Subscription)이라 한다
+  - 이 연결을 이용해 메시지(또는 이벤트로 알려짐)를 전송한다
+
+### 15.5.1 두 플로를 합치는 예제
+- 스프레드시트 예제
+- '=C1+C2'라는 공식을 포함하는 스프레드시트 셀 C3 구현
+
+```java
+public class SimpleCell {
+  private int value = 0;
+  private String name;
+  
+  public SimpleCell(String name) {
+    this.name = name;
+  }
+}
+```
+- 다음과 같이 셀을 생성한다
+
+```java
+SimpleCell c2 = new SimpleCell("c2");
+SimpleCell c1 = new SimpleCell("c1");
+```
+
+- c1와 c2에 이벤트가 발생했을 때 c3를 구독하도록 만든다
+
+```java
+interface Publisher<T> {
+  void subscribe(Subscriber<? super T> subscriber);
+}
+```
+- 이 인터페이스는 통신할 구독자를 인수로 받는다
+
+```java
+interface Subscriber<T> {
+  void onNext(T t);
+}
+```
+- 이 인터페이스는 `onNext`라는 정보를 전달할 단순 메서드를 포함한다
+- Cell은 Publisher임과 동시에 Subscriber이다
+
+```java
+public class SimpleCell implements Publisher<Integer>, Subscriber<Integer> {
+  private int value = 0;
+  private String name;
+  private List<Subscriber> subscribers = new ArrayList<>();
+
+  public SimpleCell(String name) {
+    this.name = name;
+  }
+
+  @Override
+  public void subscribe(Subscriber<? super Integer> subscriber) {
+    subscribers.add(subscriber);
+  }
+
+  private void notifyAllSubscribers() {
+    subscribers.forEach(subscriber -> subscriber.onNext(this.value)); //새로운 값이 있음을 모든 구독자에게 알림
+  }
+
+  @Override
+  public void onNext(Integer newValue) {
+    this.value = newValue;
+    System.out.println(this.name + " :" + this.value); // 값을 콘솔로 출력(UI)로 변경 가능
+    notifyAllSubscribers(); //값이 갱신되었음을 모든 구독자에게 알림
+  }
+}
+```
+- 간단한 예제 실행 결과는 아래와 같다
+
+
+```java
+SimpleCell c3 = new SimpleCell("c3");
+SimpleCell c2 = new SimpleCell("c2");
+SimpleCell c1 = new SimpleCell("c1");
+
+c1.subscribe(c3);
+
+c1.onNext(10);
+c2.onNext(20);
+
+/**
+C1:10
+C3:10 // C1의 값을 10으로 갱신
+C2:20
+*/
+```
+
+- 'C3=C1+C2'를 구현하기 위해서는 왼쪽과 오른쪽 연산 결과를 저장할 수 있는 별도의 클래스가 필요하다
+
+```java
+public class ArithmeticCell extends SimpleCell {
+  private int left;
+  private int right;
+
+  public ArithmeticCell(String name) {
+    super(name);
+  }
+
+  public void setLeft(int left) {
+    this.left = left;
+    onNext(left + this.right);
+  }
+
+  public void setRight(int right) {
+    this.right = right;
+    onNext(right + this.left);
+  }
+}
+```
+- 간단한 예제 실행 결과는 아래와 같다
+
+
+```java
+ArithmeticCell c3 = new ArithmeticCell("c3");
+SimpleCell c2 = new SimpleCell("c2");
+SimpleCell c1 = new SimpleCell("c1");
+
+/* 
+* onNext 구현
+c1.subscribe(left -> c3.setLeft(left));
+c2.subscribe(right -> c3.setRight(right));
+*/
+c1.subscribe(c3::setLeft);
+c2.subscribe(c3::setRight);
+
+c1.onNext(10);
+c2.onNext(20);
+c1.onNext(15);
+
+/**
+C1:10
+C3:10
+C2:20
+C3:30
+C1:15
+C3:35
+*/
+```
+
+- 발행자-구독자 상호작용의 멋진 점은 발행자 구독자의 그래프를 설정할 수 있다는 것이다
+  - 'C5=C3+C4'처럼 C3과 C4에 의존하는 새로운 셀 C5를 만들 수 있다
+- 간단하지만 플로 인터페이스의 개념을 복잡하게 만든 두 가지 기능은 압력과 역압력이다
+
+### 15.5.2 역압력
+- 정보의 흐름 속도를 역압력(흐름 제어)으로 제어 할 필요가 있을 수 있다
+  - Subscriber에서 Publisher로 정보를 요청해아 할 필요가 있을 수 있다
+  - 정보의 흐름이 원래는 Subscriber -> Publisher 였는데 Subscriber <- Publisher로 뒤바뀔 필요가 있을 수 있다
+- Publisher는 여러 Subscriber를 갖고 있으므로 역압력 요청이 한 연결에만 영향을 미쳐야한다
+- 자바 9의 플로 API의 Subscriber 인터페이스는 `onSubscribe(Subscription subscription)` 메서드를 포함한다
+- `Subscription` 객체는 다음처럼 Subscriber와 Publisher와 통신할 수 있는 메서드를 가진다
+
+```java
+interface Subscription {
+  void cancel();
+  void request(long n);
+}
+```
+
+- Publisher는 Subscription 객체를 만들어 Subscriber에 전달하면 Subscriber는 이를 이용해 Publisher로 전도를 보낼 수 있다
+
+### 15.5.3 실제 역압력의 간단한 형태
+- 한 번에 한 개의 이벤트를 처리하도록 발행-구독 연결을 구성하려면 다음과 같은 작업이 필요하다
+  - Subscriber가 OnSubscribe로 전달된 Subscription 객체를 subscription 같은 필드에 로컬로 저장한다
+  - Subscriber가 수 많은 이벤트를 받지 않도록 onSubscribe, onNext, onError의 마지막 동작에 channel.request(1)을 추가해 오직 한 이벤트만 요청한다
+  - 요청을 보낸 채널에만 onNext, onError 이벤트를 보내도록 Publisher의 notifyAllSubscribers 코드를 바꾼다
+- 구현이 간단해 보일 수 있지만, 역압력을 구현하려면 여러가지 장단점을 생각해야 한다
+  - 여러 Subscriber가 있을 때 이벤트를 가장 느린 속도록 보낼 것인가? 아니면 각 Subscriber에게 보내지 않은 데이터를 저장할 별도의 큐를 가질 것인가?
+  - 큐가 너무 커지면 어떻게 할 것인가?
+  - Subscriber가 준비가 안됐다면 큐의 데이터를 폐기할 것인가?
+
+- 당김 기반 리액티브 역압력은 Subscriber가 Publisher로부터 요청을 당긴다
+
+## 15.6 리액티브 시스템 VS 리액티브 프로그래밍
+- 리액티브 시스템
+  - 런타임 환경 변화에 대응하도록 전체 아키텍처가 설계된 프로그램
+  - 반응성, 회복성, 탄력성을 가져야 한다
+  - 반응성이란 시스템이 큰 작업을 처리하느라 간단한 질의의 응답을 지연하지 않고 실시간으로 입력에 반응하는 것을 말한다
+  - 회복성은 한 컨포넌트의 실패로 전체 시스템이 실패하지 않음을 의미한다
+  - 탄력성은 시스템이 자신의 작업 부하에 맞게 적응하며 작업을 효율적으로 처리함을 의미한다
+- 리액티브 프로그래밍
+  - 리액티브 시스템을 구현할 수 있는 프로그래밍 기법이다
+  - 
