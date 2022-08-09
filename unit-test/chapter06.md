@@ -100,3 +100,269 @@
   - 육각형 아키텍처는 도메인 계층에 제한하는 한, 도메인 계층으로 인한 부작용도 문제 없다
     - 도메인 클래스 인스턴스는 데이터베이스에 직접 저장할 수는 없지만 상태 변경이 가능하며, 애플리케이션 서비스에서 변경 사항을 데이터베이스에 저장한다
 
+## 6.4 함수형 아키텍처와 출력 기반 테스트로의 전환
+### 6.4.1 감사 시스템 소개
+- 조직의 모든 방문자를 추적하는 샘플 프로젝트
+
+```java
+public class AuditManager {
+    private int maxEntriesPerFile;
+    private String directoryName;
+
+    public AuditManager(int maxEntriesPerFile, String directoryName) {
+        this.maxEntriesPerFile = maxEntriesPerFile;
+        this.directoryName = directoryName;
+    }
+
+    public void addRecord(String visitorName, LocalDateTime timeOfVisit) throws IOException {
+        List<File> files = new ArrayList<>(List.of(Paths.get(directoryName).toFile().listFiles()));
+        files.sort(Comparator.comparing(File::getName));
+
+        String newRecord = String.format("%s;%s", visitorName, timeOfVisit);
+
+        if (files.isEmpty()) {
+            File file = Path.of(directoryName, "audit_1.txt").toFile();
+            write(newRecord, file);
+            return;
+        }
+
+        int currentFileIndex = files.size();
+        File currentFile = files.get(files.size() - 1);
+        try(Stream<String> lineStream = Files.lines(currentFile.toPath())) {
+            List<String> lines = new ArrayList<>(lineStream.toList());
+
+            if (lines.size() < maxEntriesPerFile) {
+                lines.add(newRecord);
+                String newContent = String.join("\r\n", lines);
+                write(newContent, currentFile);
+            } else {
+                int newIndex = currentFileIndex + 1;
+                String newName = String.format("audit_%d.txt", newIndex);
+                Path path = Path.of(directoryName, newName);
+                write(newRecord, path.toFile());
+            }
+        }
+
+    }
+
+    private void write(String newRecord, File file) throws IOException {
+        try(FileWriter writer = new FileWriter(file)) {
+            writer.write(newRecord);
+        }
+    }
+}
+```
+
+- `AuditManager` 클래스는 파일 시스템과 밀접하게 관련있어 테스트가 어렵다
+  - 테스트 전에 파일을 올바른 위치에 배치하고 테스트가 끝나면 해당 파일을 읽고 내용을 확인한 후 삭제해야 한다
+- 파일 시스템이 병목지점이다
+  - 테스트의 실행 흐름을 방해한다
+  - 테스트를 느리게 한다
+
+### 6.4.2 테스트를 파일 시스템에서 분리하기 위한 목 사용
+- 테스트가 밀접하게 결합된 문제는 일반적으로 파일 시스템을 목으로 처리해 해결한다
+- 파일의 모든 연산을 별도의 클래스로 도출하고 `AuditManager`에 생성자로 해당 클래스를 주입할 수 있다
+
+```java
+public interface FileSystem {
+    List<File> getFiles(String directoryName);
+
+    void write(String newRecord, File file);
+
+    List<String> readLines(File file);
+}
+```
+
+```java
+public class AuditManager {
+    private final int maxEntriesPerFile;
+    private final String directoryName;
+    private final FileSystem fileSystem;
+
+    public AuditManager(int maxEntriesPerFile, String directoryName, FileSystem fileSystem) {
+        this.maxEntriesPerFile = maxEntriesPerFile;
+        this.directoryName = directoryName;
+        this.fileSystem = fileSystem;
+    }
+
+    public void addRecord(String visitorName, LocalDateTime timeOfVisit) {
+        List<File> files = fileSystem.getFiles(directoryName);
+        files.sort(Comparator.comparing(File::getName));
+
+        String newRecord = String.format("%s;%s", visitorName, timeOfVisit);
+
+        if (files.isEmpty()) {
+            File file = Path.of(directoryName, "audit_1.txt").toFile();
+            fileSystem.write(newRecord, file);
+            return;
+        }
+
+        int currentFileIndex = files.size();
+        File currentFile = files.get(files.size() - 1);
+        List<String> lines = fileSystem.readLines(currentFile);
+
+        if (lines.size() < maxEntriesPerFile) {
+            lines.add(newRecord);
+            String newContent = String.join("\r\n", lines);
+            fileSystem.write(newContent, currentFile);
+        } else {
+            int newIndex = currentFileIndex + 1;
+            String newName = String.format("audit_%d.txt", newIndex);
+            Path path = Path.of(directoryName, newName);
+            fileSystem.write(newRecord, path.toFile());
+        }
+
+    }
+}
+```
+- `AuditManager`가 이제 파일 시스템에서 분리되어 공유 의존성이 사라지고 테스트를 서로 독립적으로 실행할 수 있다
+- 파일 시스템과의 통신과 이러한 통신의 부작용은 애플리케이션의 식별할 수 있는 동작이다
+- 따라서 목을 사용하여 테스트할 수있을 것이다
+
+### 6.4.3 함수형 아키텍처로 리팩터링 하기
+```java
+public class AuditManagerV2 {
+    private final int maxEntriesPerFile;
+
+    public AuditManagerV2(int maxEntriesPerFile) {
+        this.maxEntriesPerFile = maxEntriesPerFile;
+    }
+
+    public FileUpdate addRecord(FileContent[] files, String visitorName, LocalDateTime timeOfVisit) throws IOException {
+        Arrays.sort(files, Comparator.comparing(FileContent::getFileName));
+
+        String newRecord = String.format("%s;%s", visitorName, timeOfVisit);
+
+        if (files.length == 0) {
+            new FileUpdate("audit_1.txt", newRecord);
+        }
+
+        int currentFileIndex = files.length;
+        FileContent currentFile = files[files.length - 1];
+
+        List<String> lines = Arrays.asList(currentFile.getLines());
+
+        if (lines.size() < maxEntriesPerFile) {
+            lines.add(newRecord);
+            String newContent = String.join("\r\n", lines);
+            return new FileUpdate(currentFile.getFileName(), newContent);
+        } else {
+            int newIndex = currentFileIndex + 1;
+            String newName = String.format("audit_%d.txt", newIndex);
+            return new FileUpdate(newName, newRecord);
+        }
+    }
+}
+```
+
+```java
+public class FileContent {
+    public final String fileName;
+    public final String[] lines;
+
+    public FileContent(String fileName, String[] lines) {
+        this.fileName = fileName;
+        this.lines = lines;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public String[] getLines() {
+        return lines;
+    }
+}
+```
+
+```java
+public class FileUpdate {
+    public final String fileName;
+    public final String newContent;
+    public FileUpdate(String fileName, String newContent) {
+        this.fileName = fileName;
+        this.newContent = newContent;
+    }
+}
+```
+
+```java
+public class Persister {
+    public FileContent[] readDirectory(String directoryName) {
+        return Arrays.stream(Objects.requireNonNull(Paths.get(directoryName).toFile().listFiles()))
+                .map(file -> {
+                    try {
+                        return new FileContent(file.getName(), Files.lines(file.toPath()).toArray(String[]::new));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .toArray(FileContent[]::new);
+    }
+
+    public void applyUpdate(String directoryName, FileUpdate update) {
+        File file = Path.of(directoryName, update.fileName).toFile();
+        try(FileWriter writer = new FileWriter(file)) {
+            writer.write(update.newContent);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+```java
+public class ApplicationService {
+    private final String directoryName;
+    private final AuditManagerV2 auditManager;
+    private final Persister persister;
+
+    public ApplicationService(String directoryName, int maxEntriesPerFile) {
+        this.directoryName = directoryName;
+        this.auditManager = new AuditManagerV2(maxEntriesPerFile);
+        this.persister = new Persister();
+    }
+
+    public void addRecord(String visitorName, LocalDateTime timeOfVisit) throws IOException {
+        FileContent[] fileContents = persister.readDirectory(directoryName);
+        FileUpdate fileUpdate = auditManager.addRecord(fileContents, visitorName, timeOfVisit);
+        persister.applyUpdate(directoryName, fileUpdate);
+    }
+
+    public static void main(String[] args) {
+        ApplicationService applicationService = new ApplicationService("/Users/user/Workspace/study-code/unit-test/file", 1);
+        try {
+            applicationService.addRecord("hi", LocalDateTime.now());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+- `AuditManagerV2`는 함수형 아키텍처에서 불변의 함수형 코어 역할을 한다
+- `Persister`는 가변 셸 역할을 한다
+- `FileContent`는 함수형 코어의 인풋, `FileUpdate`는 함수형 코어의 아웃풋이다
+- 이제 목을 사용하지 않고 `AuditManagerV2`를 테스트할 수 있다
+
+### 6.4.4 예상되는 추가 개발
+- 생략
+
+## 6.5 함수형 아키텍처의 단점 이해하기
+### 6.5.1 함수형 아키텍처 적용 가능성
+- 감사 시스템은 결정을 내리기 전에 입력을 모두 수집할 수 있으므로 함수형 아키텍처가 잘 작동했다
+  - 하지만 상황에 따라 의사 결정 절차 중간 결과에 따라 프로세스 외부 의존성에 추가 데이터 질의를 할 수도 있다
+  - 숨은 입력이 생기면 더 이상 수학적 함수가 될 수 없다
+
+- 일단 도메인 모델이 데이터베이스에 의존하는 것은 좋은 생각이 아니다
+
+### 6.5.2 성능 단점
+- 함수형 아키텍처는 결정을 내리기 전 입력을 모두 수집해야한다
+- 따라서 프로세스 외부 의존성을 더 많이 호출하며 성능이 떨어진다
+- 함수형 아키텍처와 전통적인 아키텍처 사이의 선택은 성능과 코드 유지 보수성간의 절충이다
+
+### 6.5.3 코드베이스 크기 증가
+- 함수형 아키텍처는 함수형 코어와 가변 셸 사이를 명확하게 분리해야 한다
+  - 이를 통해 코드 복잡도가 낮아지고 유지 보수성이 향상된다
+  - 하지만 코딩이 더 필요하다
+- 항상 시스템의 복잡도와 중요성을 고려해 함수형 아키텍처를 전략적으로 적용하라
+- 대부분의 프로젝트에서는 모든 도메인 모델을 불변으로 할 수 없기 때문에 출력 기반 테스트만 의존할 수 없다
