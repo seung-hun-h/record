@@ -347,5 +347,20 @@ public List<String> findPrices(String product) {
 
 **CompletableFuture를 조합해서 할안된 가격 계산하기**
 - 세 번째 `map`연산에서는 상점에서 받은 할인전 가격에 원격 `Discount`서비스에서 제공하는 할인율을 적용해야 한다
-- 원격 실행이 포함되므로 동기적으로 작업을 수행해야 한다
-- 
+- 원격 실행이 포함되므로 동기적으로 작업을 수행해야 한다(`thenCompose`가 동기적임)
+- 람다 표현식으로 이 동작을 팩토리 메서드 `supplyAsync`에 전달할 수 있다
+	- 그러면 다른 `CompletableFuture`가 반환된다
+- 결국 두 가지  `CompletableFuture`로 이루어진 연쇄적으로 수행되는 두 개의 비동기 동작을 만들 수 있다
+	- 상점에서 가격 정보를 얻어와서 `Quote`로 변환하기
+	- 변환된 `Quote`를 `Discount` 서비스로 전달해서 할인된 최종가격 획득하기
+
+- 세 개의 `map` 연산 결과 스트림 요소를 리스트로 수집하면 `List<CompletableFuture<String>>` 형식으 자료를 얻을 수 있다
+- 마지막으로 `CompletableFuture`가 완료되기를 기다렸다가 `join`으로 값을 추출할 수 있다
+
+### 16.4.4 독립 CompletableFuture와 비독립 CompletableFuture 합치기
+- 종종 독립적으로 실행된 두 개의 `CompletableFuture` 결과를 합쳐야 하는 상황이 종종 발생한다
+- 이런 상황에서는 `thenCombine` 메서드를 사용한다
+	- `BiFunction`을 두 번째 인수로 받는다
+	- 이는 두 개의 결과를 어떻게 합칠 지 정의한다
+	- Async 버전이 존재한다
+	- 
