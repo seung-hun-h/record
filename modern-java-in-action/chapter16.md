@@ -315,3 +315,20 @@ public List<String> findPrices(String product) {
 - `CompletableFuture`에서 수행하는 태스크를 설정할 수 있는 커스텀 `Executor`를 정의함으로써 CPU 사용을 극대화 할 수 있다
 
 ### 16.4.3 동기 작업과 비동기 작업 조합하기
+- `CompletableFuture`에서 제공하는 기능으로 `findPrices`메서드를 비동기적으로 재구현한 코드
+
+```java
+public List<String> findPrices(String product) {
+	List<CompletableFuture<String>> priceFutures = 
+					shops.stream()
+							.map(shop -> CompletableFuture.supplyAsync(() -> shop.getPrice(product), executor))
+							.map(future -> future.thenApply(Quote::parse))
+							.map(future -> future.thenCompose(quote -> CompletableTurue.supplyAsync( () -> Discount.applyDiscount(quote), executor)))
+							.collect(toList());
+
+	return priceFutures.stream()
+						.map(CompletableFuture::join)
+						.collec(toList());
+}
+```
+
