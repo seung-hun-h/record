@@ -382,3 +382,53 @@ Future<Double> futurePriceInUSD =
 ### 16.4.6 타임아웃 효과적으로 사용하기
 - `Future`의 계산 결과를 읽을 때는 무한정 기다리는 상황이 발생할 수 있으므로 블록을 하지 않는 것이 좋다
 - 자바 9에서는 `CompletableFuture`에서 제공하는 몇 가지 기능을 이용해 이런 문제를 해결할 수 있다
+
+```java
+Future<Double> futurePriceInUSD = 
+		CompletableFuture.supplyAsync(() -> shop.getPrice(product))
+		.thenCombine(
+			CompletableFuture.supplyAsync(
+				() -> exchangeService.getRate(Money.EUR, Money.USD)),
+				(price, rate) -> price * rate
+		))
+		.orTimeout(3, TimeUnit.SECONDS);
+```
+- `Future`가 3초 후에 작업을 끝내지 못할 경우 `TimeoutException`이 발생하도록 `orTime`을 메서드 체인 끝에 사용할 수 있다
+
+- 일시적으로 서비스를 이용할 수 없는 상황에서 꼭 서버에서 얻은 값이 아닌 미리 지정된 값을 사용할 수 있는 상황도 있다
+- 자바 9에서 추가된 `completeOnTimeout`메서드를 사용하면 된다
+
+```java
+Future<Double> futurePriceInUSD = 
+		CompletableFuture.supplyAsync(() -> shop.getPrice(product))
+		.thenCombine(
+			CompletableFuture.supplyAsync(
+				() -> exchangeService.getRate(Money.EUR, Money.USD))
+				.completeOnTimeout(DEFAULT_RATE, 1, TimeUnit.SECONDS),
+				(price, rate) -> price * rate
+		))
+		.orTimeout(3, TimeUnit.SECONDS);
+```
+
+- 환전 서비스가 1초 안에 결과를 제공하지 않으면 기본 환율값을 사용하도록 했다
+- `completeOnTimeout` 메서드는 `CompletableFuture`를 반환하므로 이 결과를 다른 메서드와 연결할 수 있다
+
+## 16.5 CompletableFuture의 종료에 대응하는 방법
+- 여러 상점에서 정보를 제공했을 때 몇몇 상점은 다른 상점보다 훨씬 먼저 결과를 제공할 수 있다
+- 모든 상점에서 결과를 제공할 때까지 기다리지 않고 각 상점에서 가격 정보를 제공할 때마다 즉시 보여줄 수 있도록 변경한다
+
+### 16.5.1 최저가격 검색 애플리케이션 리팩터링
+- 모든 가격 정보를 포함할 때까지 리스트 생성을 기다리지 않도록 프로그램을 고쳐야 한다
+
+```java
+public Stream<CompletableFuture<String>> findPricesStream(String product) {
+	return shops.stream()
+				.map(shop -> CompletableFuture.supplyAsync(
+								() -> shop.getPrice(product), executor))
+				.map(future -> future.thenApply(Quote::parse))
+				.map(future -> future.thenCompose(quote -> 
+													CompletableFuture.supplyAsync(
+														() -> Discount.applyDiscount(quote)
+													)))
+}
+```
