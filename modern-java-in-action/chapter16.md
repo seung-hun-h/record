@@ -363,4 +363,22 @@ public List<String> findPrices(String product) {
 	- `BiFunction`을 두 번째 인수로 받는다
 	- 이는 두 개의 결과를 어떻게 합칠 지 정의한다
 	- Async 버전이 존재한다
-	- 
+
+```java
+Future<Double> futurePriceInUSD = 
+		CompletableFuture.supplyAsync(() -> shop.getPrice(product))
+		.thenCombine(
+			CompletableFuture.supplyAsync(
+				() -> exchangeService.getRate(Money.EUR, Money.USD)),
+				(price, rate) -> price * rate
+		));
+```
+
+![Screen Shot 2022-08-21 at 11 21 02 AM](https://user-images.githubusercontent.com/60502370/185772555-0a0ac5f9-82bd-4acc-918b-7e447c46711b.png)
+
+### 16.4.5 Future 리플렉션과 CompletableFuture의 리플렉션
+- 생략
+
+### 16.4.6 타임아웃 효과적으로 사용하기
+- `Future`의 계산 결과를 읽을 때는 무한정 기다리는 상황이 발생할 수 있으므로 블록을 하지 않는 것이 좋다
+- 자바 9에서는 `CompletableFuture`에서 제공하는 몇 가지 기능을 이용해 이런 문제를 해결할 수 있다
