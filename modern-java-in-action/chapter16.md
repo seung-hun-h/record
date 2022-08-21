@@ -428,7 +428,16 @@ public Stream<CompletableFuture<String>> findPricesStream(String product) {
 				.map(future -> future.thenApply(Quote::parse))
 				.map(future -> future.thenCompose(quote -> 
 													CompletableFuture.supplyAsync(
-														() -> Discount.applyDiscount(quote)
-													)))
+														() -> Discount.applyDiscount(quote), executor)));
 }
+```
+
+- 자바 8에서는 `thenAccept`라는 메서드를 제공한다
+	- `CompletableFuture`의 동작이 끝난 후에 연산 결과를 소비한다
+	- Async 버전이 존재한다
+	- `CompletableFuture<Void>`를 반환한다
+
+```java
+CompletableFuture[] futures = findPricesStream("myPhone")
+								.map(f -> f.thenAccept(System::))
 ```
