@@ -270,7 +270,48 @@ public class Quote {
 		String[] split = s.split(":");
 		String shopName = split[0];
 		double price = Double.parseDouble(split[1]);
-		Discount.Code 
+		Discount.Code discountCode = Discount.Code.valueOf(split[2]);
+		return new Quote(shopName, price, discountCode);
+	}
+
+	// getter, setter
+}
+```
+- `Discount` 서비스에서는 `Quote` 객체를 인수로 받아 할인된 가격 문자열을 반환하는 `applyDiscount` 메서드도 제공한다
+
+```java
+public class Discount {
+	public enum Code {
+		// 생략
+	}
+	
+	public static String applyDiscount(Quote quote) {
+		return quote.getShopName() + " price is " + Discount.apply(quote.getPrice(), quote.getDiscountCode());
+	}
+
+	private static double apply(double price, Code code) {
+		delay();
+		return format(price * (100 - code.percentage / 100);
 	}
 }
 ```
+
+### 16.4.2 할인 서비스 사용
+- `Discount`는 원격 서비스이므로 1초의 지연을 추가한다
+- 일단 순차적 동기 방식으로 `findPrices`메서드를 구현한다
+
+```java
+public List<String> findPrices(String product) {
+	return shops.stream()
+				.map(shop -> shop.getPrice(product))
+				.map(Quote::parse)
+				.map(Discount::applyDiscount)
+				.collect(toList());
+}
+```
+
+- 순차적으로 상점의 가격 정보를 요청하고 할인 코드를 적용하기 때문에 성능을 기대하기 어렵다
+- 병렬 스트림을 사용하면 쉽게 성능을 개선할 수 있지만, 스레드 풀의 사이즈가 고정되어 있기 때문에 상점 수가 늘어났을 때처럼 검색 대상이 확장되었을 때 유연하게 대응할 수 없다
+- `CompletableFuture`에서 수행하는 태스크를 설정할 수 있는 커스텀 `Executor`를 정의함으로써 CPU 사용을 극대화 할 수 있다
+
+### 16.4.3 동기 작업과 비동기 작업 조합하기
