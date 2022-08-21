@@ -332,3 +332,19 @@ public List<String> findPrices(String product) {
 }
 ```
 
+![Screen Shot 2022-08-21 at 10 45 57 AM](https://user-images.githubusercontent.com/60502370/185771860-53c4fd32-295f-4825-8ae1-0419f80abedc.png)
+
+**가격 정보 얻기**
+- 팩토리 메서드 `supplyAsync`에 람다 표현식을 전달해서 비동기적으로 상점에서 정보를 조회했다
+- 첫 번쨰 변환의 결과는 `Stream<CompletableFuture<String>>` 이다
+- 각 `CompletableFuture` 작업이 끝났을 때 해당 상점에서 반환하는 문자열 정보를 포함한다
+
+**Quote 파싱하기**
+- 두 번째 변환 과정에서는 첫 번째 결과 문자열을 `Quote`로 변환한다
+- 파싱 동작에는 원격 서비스나 I/O가 없으므로 지연없이 동작한다
+- 따라서 `thenApply` 메서드를 호출한 다음에 문자열을 `Quote`인스턴스로 변환하는 `Function`으로 전달한다
+	- `thenApply` 메서드는 `CompletableFuture`가 끝날 때까지 블록하지 않는다
+
+**CompletableFuture를 조합해서 할안된 가격 계산하기**
+- 세 번째 `map`연산에서는 상점에서 받은 할인전 가격에 원격 `Discount`서비스에서 제공하는 할인율을 적용해야 한다
+- 
