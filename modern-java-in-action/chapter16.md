@@ -217,4 +217,60 @@ public List<String> findPrices(String product) {
   - 작업이 I/O를 기다리는 작업을 병렬로 실행할 때는 CompletableFuture가 더 많은 유연성을 제공하면 대기/계산의 비율에 적합한 스레드 수를 설정할 수 있다. 특히 스트림의 게으른 특성때문에 스트림에서 I/를 실제로 언제 처리할 지 예측하기 어려운 문제도 있다
 
 ## 16.4 비동기 작업 파이프라인 만들기
-aafasdfasdfasdf
+- 모든 상점이 하나의 할인 서비스를 사용하기로 했다고 가정
+- 할인 서비스에는 서로 다른 할인율을 제공하는 다섯 가지 코드를 제공한다
+
+```java
+public class Discount {
+	public enum Code {
+		NONE(0), SILVER(5), GOLD(10), PLATINUM(15), DIAMOND(20);
+
+		private final int percentage;
+
+		Code(int percentage) {
+			this.percentage = percentage;
+		}
+	}
+}
+```
+
+- 그리고 상점에서 `getPrice`의 결과 형식도 변경한다
+	- `ShopName:price:DiscodeCode` 형식의 문자열을 반환한다
+
+```java
+public String getPrice(String product) {
+	double price = calculatePrice(product);
+	Discount.Code code = Discount.Code.values()[random.nextInt(Discount.Code.values().lenth)];
+	
+	return String.format("%s:%.2f:%s", name, price, code);
+}
+
+private double calculatePrice(String product) {
+	delay();
+	return random.nextDouble() * product.charAt(0) + product.charAt(1);
+}
+```
+
+### 16.4.1 할인 서비스 구현
+- 상점에서 제공한 문자열 파싱은 다음처럼 `Quote` 클래스로 캡슐화할 수 있다
+
+```java
+public class Quote {
+	private final String shopName;
+	private final double price;
+	private final Discount.Code discountCode;
+
+	public Quote(String shopName, double price, Discount.Code code) {
+		this.shopName = shopName;
+		this.price = price;
+		this.discountCode = code;
+	}
+	
+	public static Quote parse(String s) {
+		String[] split = s.split(":");
+		String shopName = split[0];
+		double price = Double.parseDouble(split[1]);
+		Discount.Code 
+	}
+}
+```
