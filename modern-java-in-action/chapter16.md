@@ -437,7 +437,32 @@ public Stream<CompletableFuture<String>> findPricesStream(String product) {
 	- Async 버전이 존재한다
 	- `CompletableFuture<Void>`를 반환한다
 
+- 가장 응답이 느린 상점에서 응답을 받아서 반환된 가격을 출력할 기회를 제공하고 싶다고 가정한다
+- 아래 코드와 같이 스트림의 모든 `CompletableFuture<Void>`를 배열로 추가하고 실행 결과를 기다려야 한다
 ```java
 CompletableFuture[] futures = findPricesStream("myPhone")
-								.map(f -> f.thenAccept(System::))
+								.map(f -> f.thenAccept(System.out::println))
+								.toArray(size -> new CompletableFuture[size]);
+CompletableFuture.allOf(futures).join();
+```
+
+- `allOf`는 `CompletableFuture` 배열을 입력으로 받아 `CompletableFuture<Void>`를 반환한다
+	- 전달된 모든 `CompletableFuture` 가 완료되어야 반환된다
+- `allOf`가 반환하는 `CompletableFuture`에 `join`을 호출하면 원래 스트림의 모든 `CompletableFuture`의 실행 완료를 기다릴 수 있다
+- 이를 통해 사용자는 '모든 상점이 결과를 반환했거나 타임아웃 되었음' 같은 메시지를 보고 추가적으로 가격 정보를 기다리지 않아도 된다
+- `anyOf`는 배열의 `CompletableFuture` 작업 중 하나만 끝나기를 기다리는 상황에서 사용한다
+	- `CompletableFuture<Object>`를 반환한다
+
+### 16.5.2 응용
+
+```java
+long start = System.nonoTime();
+CompletableFuture[] futures = findPricesStream("myPhone")
+								.map(f -> f.thenAccept(
+									s -> System.out.println(s + " (done in " + 
+										((System.nanoTime() - start) / 1_000_000) + " msecs")))
+								.toArray(size -> new CompletableFuture[size]);
+CompletableFuture.allOf(futures).join();
+System.out.println("All shops have now responded in " +
+				  ((System.nanoTime() - start) / 1_000_000) + " msecs")));
 ```
