@@ -323,7 +323,7 @@ public List<String> findPrices(String product) {
 					shops.stream()
 							.map(shop -> CompletableFuture.supplyAsync(() -> shop.getPrice(product), executor))
 							.map(future -> future.thenApply(Quote::parse))
-							.map(future -> future.thenCompose(quote -> CompletableTurue.supplyAsync( () -> Discount.applyDiscount(quote), executor)))
+							.map(future -> future.thenCompose(quote -> CompletableFuture.supplyAsync(() -> Discount.applyDiscount(quote), executor)))
 							.collect(toList());
 
 	return priceFutures.stream()
@@ -347,4 +347,5 @@ public List<String> findPrices(String product) {
 
 **CompletableFuture를 조합해서 할안된 가격 계산하기**
 - 세 번째 `map`연산에서는 상점에서 받은 할인전 가격에 원격 `Discount`서비스에서 제공하는 할인율을 적용해야 한다
+- 원격 실행이 포함되므로 동기적으로 작업을 수행해야 한다
 - 
