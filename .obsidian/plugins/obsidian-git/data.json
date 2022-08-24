@@ -1,8 +1,8 @@
 {
   "commitMessage": "{{date}}",
-  "autoCommitMessage": "{date}}",
+  "autoCommitMessage": "{{date}}",
   "commitDateFormat": "YYYY-MM-DD HH:mm:ss",
-  "autoSaveInterval": 10,
+  "autoSaveInterval": 0,
   "autoPushInterval": 180,
   "autoPullInterval": 0,
   "autoPullOnBoot": false,
@@ -19,7 +19,7 @@
   "treeStructure": false,
   "refreshSourceControl": true,
   "basePath": "",
-  "differentIntervalCommitAndPush": true,
+  "differentIntervalCommitAndPush": false,
   "changedFilesInStatusBar": false,
   "username": ""
 }
