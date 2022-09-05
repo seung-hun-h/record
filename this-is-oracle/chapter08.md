@@ -202,7 +202,7 @@ CREATE MATERIALIZED VIEW 뷰이름
 
 AS
 	SELECT 문장;
-```
+ㅋ```
 
 - BUILD IMMEDIATE
 	- 구체화된 뷰를 생성한 후 동시에 구체화된 내부에 데이터가 채워진다
