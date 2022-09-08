@@ -1,0 +1,75 @@
+## ITEM07 다 쓴 객체의 참조를 해제하라
+- 자바는 가비지 컬렉터를 갖춘 언어이다
+- 하지만 메모리 관리에 더 이상 신경쓰지 않아도 되는 것은 아니다
+
+```Java
+public class Stack {  
+   private static final int DEFAULT_INITIAL_CAPACITY = 16;  
+  
+   private Object[] elements;  
+   private int size = 0;  
+  
+   public Stack() {  
+      elements = new Object[DEFAULT_INITIAL_CAPACITY];  
+   }  
+  
+   public void push(Object object) {  
+      ensureCapacity();  
+      elements[size++] = object;  
+   }  
+  
+   public Object pop() {  
+      if (size == 0) {  
+         throw new EmptyStackException();  
+      }  
+      return elements[size--];
+   }  
+  
+   private void ensureCapacity() {  
+      if (elements.length == size) {  
+         elements = Arrays.copyOf(elements, 2 * size + 1);  
+      }  
+   }  
+}
+```
+
+- 위 코드에는 메모리 누수가 숨어 있다
+	- 위 코드를 자주 사용하게되면 메모리 사용량이 많이져 결국에는 성능이 저하될 것이다
+	- 드물게 디스크 페이징이나 OOM이 발생해 프로그램이 예기치 않게 종료될 수도 있다
+- 위 코드에서 메모리 누수가 발생하는 이유는 스택에서 꺼내진 객체들을 가비지 컬렉터가 회수 하지 않기 때문이다
+	- `elements` 배열에서 다 사용한 객체들에 대한 참조를 여전히 유지하고 있다
+- 가비지 컬렉션 언어에서는 메모리 누수를 찾기가 매우 까다롭다
+	- 객체 참조 하나를 살려두면 가비지 컬렉터는 해당 객체 뿐 아니라 그 객체를 참조하고 있는 다른 객체까지 회수하지 못한다
+- 위 코드에서 메모리 누수를 방지하기 위한 방법은 간단하게 null 처리를 하는 것이다
+
+```Java
+public Object pop() {  
+	if (size == 0) {  
+	 throw new EmptyStackException();  
+	}
+	
+	Object result = elements[size];
+	elements[size--] = null;  
+	return result;
+}  
+```
+
+- 하지만 모든 객체를 다 쓰자 마자 null 처리를 할 필요는 없다
+	- 객체 참조를 null 처리하는 일은 예외적인 경우여야 한다
+
+### 메모리 누수 주범:  자기 메모리를 직접 관리하는 클래스
+- 자기 메모리를 직접 관리하는 클래스라면 프로그래머는 항시 메모리 누수에 주의해야 한다
+- 원소를 사용한 그 즉시 그 원소가 참조한 객체들을 다 null 처리 해줘야 한다
+
+### 메모리 누수 주범: 캐시
+- 객체 참조를 캐시에 넣고 나서, 이 사실을 까맣게 잊은 채 그 객체를 다 쓴 뒤로도 한참을 그냥 놔두는 일은 흔하다
+- 캐시 외부에서 키를 참조하는 동안만 엔트리가 살아 있는 캐시가 필요한 상황이라면 `WeakHashMap`을 사용하자
+	- 다 쓴 엔트리는 그 즉시 자동으로 제거가 된다
+- 일반적으로 캐시 엔트리의 유효 기간을 정확히 정의하기 어렵기 때문에 시간이 지날수록 엔트리의 가치를 떨어뜨리는 방식을 흔히 사용한다
+	- 백그라운드 스레드를 활용(ScheduledThreadPoolExecutor) 캐시에 새 엔트리를 추가할 때 부수 작업으로 수행하는 방법이 있다
+	- `LinkedHashMap`은 `removeEldestEntry` 메서드를 써서 후자의 방식으로 처리한다
+	- 더 복잡한 캐시를 만들고 싶다면 `java.lang.ref` 패키지를 직접 활용해야 한다
+
+### 메모리 누수 주범: 리스너 혹은 콜백
+- 클라이언트가 콜백을 등록만하고 명확히 해지 하지 않는다면 뭔가 조치를 해주지 않는 이상 콜백은 계속 쌓여갈 것이다
+- 이떄 콜백을 약한 참조로 저장하면 가비지 컬렉터가 즉시 수거해간다
