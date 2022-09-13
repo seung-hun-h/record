@@ -8,3 +8,5 @@
 - [[Item05]]: 자원을 직접 명시하지 말고 의존 객체 주입을 사용하라
 - [[Item06]]: 불필요한 객체 생성을 피하라
 - [[Item07]]: 다 쓴 객체의 참조를 해제하라
+- [[Item08]]: finalizer와 cleaner 사용을 피하라
+- [[Item09]]: try-finally보다는 try-with-resources를 사용하라
