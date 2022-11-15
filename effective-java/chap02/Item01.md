@@ -107,6 +107,10 @@ private static Connection getConnection(
 - DB 드라이버에 따라 `Connection`의 구현체가 있을 것이고, `getConnection`은 전달받은 인자를 통해서 적절한 `Connection`  구현체를 반환한다
 - 그러니까 Connection의 구현체를 나중에 만들 수 있다
 
+- DBMS
+	- MySQL, Oracle, MariaDB .. 여러가지(벤더)
+	- 벤더사마다 Connection 객체, DriverManager 다르다
+
 ### 정적 팩터리 메서드 단점
 1. 상속을 하려면 public, protected 생성자가 필요하니 정적 팩토리 메서드만 제공하면 하위 클래스를 만들 수 없다
    - 이 제약은 상속보다는 컴포지션을 사용하도록 유도하고, 불변 타입으로 만드려면 이 제약을 지켜야한다는 점에서 장점일 수 있다
