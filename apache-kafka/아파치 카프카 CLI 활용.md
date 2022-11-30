@@ -78,7 +78,78 @@ bin/kafka-console-consumer.sh --bootstrap.server localhost:9092 --topic hello.ka
 ```CLI
 bin/kafka-console-consumer.sh --bootstrap.server localhost:9092 --topic hello.kafka --from-beginning --max-messages 1
 ```
-- `--group`
+- 그룹 설정(`--group`)
 	- 해당 옵션을 사용하면 컨슈머 그룹 기반으로 `kafka-console-consumer`가 동작한다
 	- 컨슈머 그룹이란 특정 목적을 가진 컨슈머들을 묶음으로 사용하는 것을 뜻한다
 	- 컨슈머 그룹으로 토픽의 레코드를 가져갈 경우 어느 레코드까지 읽었는지에 대한 데이터가 카프카 브로커에 저장된다
+
+## kafka-consumer-groups.sh
+---
+- 컨슈머 그룹은 따로 생성하는 명령을 하지 않고 컨슈머를 동작시킬 때 그룹 이름을 지정하면 새로 생성된다
+- 컨슈머 그룹 확인(`--list`)
+```CLI
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
+```
+- 컨슈머 그룹 정보 확인(`--describe`)
+	- 그룹 이름, 토픽, 파티션 개수, 현재 오프셋, 마지막 오프셋, 컨슈머 랙을 나타낸다
+	- 컨슈머 랙은 현재 오프셋과 마지막 오프셋까지의 차이를 의미한다
+```CLI
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group hello-group --describe
+```
+
+- 오프셋 리셋(`--reset-offset`)
+	- `--to-earliest`: 가장 처음 오프셋으로 리셋
+	- `--to-latest`: 가장 마지감 오프셋으로 리셋
+	- `--to-current`: 현 시점 기준 오프셋으로 리셋
+	- `--to-datetime {YYYY-MM-DDTHH:mmSS.sss}`: 특정 일시로 오프셋 리셋(레코드 타임스탬프 기준)
+	- `--to-offset {long}`: 특정 오프셋으로 리셋
+	- `--shift-by {+/-long}`: 현재 컨슈머 오프셋에서 앞뒤로 옮겨서 리셋
+```CLI
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group hello-group --topic hello.kafka --reset-offsets --to-earliest --execute
+```
+
+## 그 외 커맨드 라인 툴
+---
+### kafka-producer-perf-test.sh
+- 카프카 프로듀서로 퍼포먼스를 측정할 때 사용한다
+![image](https://user-images.githubusercontent.com/60502370/204707967-170cd2db-e069-4ae1-bfb5-26eb825cd530.png)
+
+### kafka-consumer-perf-test.sh
+- 카프카 컨슈머로  퍼포먼스를  측정할 때 사용된다
+- 카프카 브로커와 컨슈머간의 네트워크를 체크할 때 사용할 수 있다
+![image](https://user-images.githubusercontent.com/60502370/204708156-2d24c0d2-0588-4890-9861-568b120233af.png)
+
+### kafka-reassign-partitions.sh
+- 리더 파티션과 팔로워 파티션의 위치를 변경할 수 있다
+- 특정 브로커에 파티션이 몰려 있는 핫스팟 현상을 해결 할 때 사용할 수 있다
+- 카프카 브로커에는 `auto.leader.rebalance.enable` 옵션이 있는데 이 옵션의 기본값은 true로, 클러스터 단위에서 리더 파티션을 자동 리밸런싱하도록 한다
+- 브로커의 백그라운드 스레드가 일정한 간격으로 리더의 위치를 파악하고 필요시 리밸런싱 한다
+
+![image](https://user-images.githubusercontent.com/60502370/204708464-96f23c45-e514-436e-b383-5056f61bb7ae.png)
+![image](https://user-images.githubusercontent.com/60502370/204708532-90dd72f0-1710-4264-b9fe-80f70713704b.png)
+
+### kafka-delete-record.sh
+- 레코드를 삭제한다
+- `offset` 에 지정된 오프셋까지 레코드를 삭제한다
+
+![image](https://user-images.githubusercontent.com/60502370/204708725-892c1bf4-afc9-457f-b746-43b74c45b5bc.png)
+
+### kafka-dumb-log.sh
+- 카프카 로그 파일 정보를 읽는다
+![image](https://user-images.githubusercontent.com/60502370/204708892-aa44544b-fd66-4359-ac39-c85bfd611295.png)
+
+# 토픽을 생성하는 두 가지 방법
+---
+1. 카프카 컨슈머 또는 프로듀서가 카프카 브로커에 생성되지 않은 토픽에 대해 데이터를 요쳥할 떄
+   - **allow.auto.create.topics=true** 로 설정되어 있으면, 존재하지 않는 토픽에 데이터를 요청할 때 새로 만든다
+
+2. 커맨드 라인 툴로 명시적으로 토픽을 생성
+   - 토픽을 효과적으로 유지보수하기 위해서는 토픽을 명시적으로 생성하는 것을 추천한다
+   - 데이터의 특성에 따라 토픽 설정을 다르게할 수도 있다
+	   - 동시 처리량이 많아야 하는  토픽에는 파티션을 100개를 줄수도 있다
+	   - 단기간 데이터만 필요한 경우에는 데이터 보관기간 옵션을 짧게 줄 수도 있다
+	     
+# 카프카 브로커와 CLI 버전을 맞춰야 한다
+---
+- 카프카 브로커로 커맨드 라인 툴 명령을 내릴 때 브로커의 버전과 커맨드 라인 툴 버전을 맞추는 것을 권장한다
+- 브로커 버전이 업그레이드됨에 따라서 커맨드 라인 툴의 상세 옵션이 달라지기 때문이다
