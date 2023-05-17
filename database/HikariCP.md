@@ -68,23 +68,44 @@
 
 #### Infrequenlty
 - `initializationFailTimeout`
-	- 
+	- 커넥션 풀이 처음에 커넥션을 성공적으로 생성할 수 없을 때 빠르게 실패할 지를 제어한다
+	- 커넥션을 `initializationFailTimeout` 시간 전에 얻을 수 없으면 예외가 발생한다
+	- 0이면 유효성 검사를 수행한다. 음수이면 초기 연결 시도를 우회하고 풀이 커넥션을 백그라운드에서 얻으려고 할 때 풀을 즉시 시작한다
+	- 기본값: 1
 - `isolateInternalQueries`
+	- HikariCP 내부 쿼리를 격리할 지 결정
+	- 내부 쿼리는 일반적으로 읽기 전용이므로 거의 필요하지 않다
+	- 기본값: false
 - `allowPoolSuspension`
+	- 커넥션 풀이 JMX를 통해 일시 중지 및 재개 될 수 있는지 제어
+	- 커넥션 풀이 일시 중지되면 `getConnection()`은 타임아웃 되지 않고 풀이 재개될 때까지 대기한다
 - `readOnly`
-- `RegisterMbeans`
-- `catalog`
+	- 커넥션 풀의 커넥션이 기본적으로 읽기 전용 모드인지 제어
 - `connetionInitSql`
+	- 커넥션이 생성된 후 풀에 추가되기 전에 실행되는 SQL문을 설정한다
+	- SQL이 유효하지 않다면 연결 실패로 처리되고 표준 재시도 로직을 따라간다
 - `driverClassName`
+	- HikariCP는 jdbcUrl 기반으로 DriverManager를 통해 드라이버를 찾는다. 일부 오래된 드라이버는 `driverClassName`까지 명시해주어야 한다
+- `transactionIsolation`
+	- 커넥션 풀의 커넥션들의 기본 트랜잭션 격리 수준을 설정한다
 - `validationTimeout`
+	- 커넥션의 aliveness를 테스트할 수 있는 최대 시간
+	- `connectionTimout`보다 작아야 한다
+	- 기본값: 5000
 - `leakDetectionThreshold`
+	- 커넥션이 풀에서 벗어날 수 있는 시간
+	- 커넥션 누수를 나타내는 로그 메시지가 표시되기 전에 커넥션이 풀에서 벗어날 수 있는 시간
+	- 기본값: 0
 - `dataSource`
+	- 프로그래밍 방식의 설정 혹은 IoC 컨테이너를 통해서만 사용 가능
+	- HikariCP가 리플렉션을 통해 생성하는 대신 풀에 래핑될 `DataSource` 인스턴스를 직접 설정할 수 있다
+	- HikariCP는 `DataSource`를 통해 구현되어 있어서 래핑된다는 표현을 사용한다
 - `schema`
+	- 스키마 개념을 지원하는 데이터베이스의 기본 스키마를 설정한다
 - `threadFactory`
+	- 프로그래밍 방식의 설정 혹은 IoC 컨테이너를 통해서만 사용 가능
+	- 풀에서 사용될 모든 스레드를 생성하는데 사용되는 `java.util.concurrent.ThreadFactory`의 인스턴스를 설정
 - `scheduledExecutor`
-
-### HikariCP 코드
-#### HikariDataSource
-#### HikariPool
-
+	- 프로그래밍 방식의 설정 혹은 IoC 컨테이너를 통해서만 사용 가능
+	- 내부적으로 스케줄링된 태스크에 사용되는 `java.util.concurrent.ScheduledExecutorService` 인스턴스 설정
 
