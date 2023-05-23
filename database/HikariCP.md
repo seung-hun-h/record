@@ -5,7 +5,6 @@
 ## HikariCP
 - Java 언어로 작성된 데이터베이스 커넥션 풀 라이브러리
 
-
 ### Configuration
 - Essential Options를 제외한 나머지는 기본 설정이 존재한다
 
@@ -36,7 +35,7 @@
 	- 커넥션이 커넥션 풀에서 유휴 상태로 유지될 수 있는 최대 시간
 	- `minimumIdle`이 `maximumPoolSize`보다 작게 설정되어 있어야 한다
 	- 커넥션 풀의 유휴 커넥션이 `minimumIdle`에 도달 하자마자 유휴 커넥션들이 제거되는 것은 아니다. 15~30초 정도는 유지된다
-	- `idelTimeout`을 설정하면 최소한 설정한 시간전에는 제거되지 않는다
+	- `idleTimeout`을 설정하면 최소한 설정한 시간전에는 제거되지 않는다
 	- `0`은 유휴 커넥션이 커넥션 풀에서 제거되지 않음을 의미한다
 	- 기본값: 600000(10분)
 - `keepaliveTimeout`
@@ -45,11 +44,11 @@
 	- `maxLifeTime`보다 작아야 한다
 	- **keepalive** 시간에 도달하면 JDBC4는 `isValid()`, 그 외는 `connectionTestQuery()`를 호출한다
 	- 기본값: 0
-- `maxLifetime`
+- `maxLifeTime`
 	- 커넥션 풀의 커넥션에 대한 최대 수명
 	- 사용 중인 커넥션은 절대 제거되지 않고, 닫힐 때만 제거된다
 	- 데이터베이스나 인프라에서 설정한 connection time out보다 조금 짧아야한다. 이 값을 설정하는 것을 권장한다
-	- 0은 최대 수명이 없으나 `idelTimeout` 설정에 따라 제한된다
+	- 0은 최대 수명이 없으나 `idleTimeout` 설정에 따라 제한된다
 	- 기본값: 1800000(30분)
 - `connectionTestQuery`
 	- JDBC4를 사용한다면 이 값을 설정하지 않는다
