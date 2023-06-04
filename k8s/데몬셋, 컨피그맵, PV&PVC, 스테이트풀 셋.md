@@ -438,3 +438,75 @@ spec:
 <img width="822" alt="image" src="https://github.com/seung-hun-h/record/assets/60502370/25cd0278-01b5-4d81-b217-27ac3074b778">
 - `/dev/sdb`가 `/mnt`에 마운트된 것을 확인할 수 있다
 	- `pd-mount-container`의 `/dev/sdb`
+
+---
+참고: https://blog.naver.com/alice_k106/221737984779
+
+## 스테이트풀 셋
+- 파드 집합의 디플로이먼트와 스케일링을 관리하며 파드들의 순서 및 고유성을 보장한다
+- `volumeClaimTemplates`를 사용해 PVC등을 자동으로 생성할 수 있고, 각 파드가 순서대로 생성되기 때문에 고정된 이름, 볼륨, 설정 등을 가질 수 있다
+- 효율성면에서 좋은 구조가 아니므로 요구 사항에 맞게 적절히 사용하는 것이 좋다
+- 고유하고 영구적인 ID 및 안정적인 호스트 이름이 필요한 Kafka, MySQL, Redis, ZooKeeper, 기타 애플리케이션을 배포하는 데 적합(마스터-슬레이브 구조)
+
+```YAML
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app: nginx # Label selector that determines which Pods belong to the StatefulSet
+                 # Must match spec: template: metadata: labels
+  serviceName: "nginx"
+  replicas: 7
+  template:
+    metadata:
+      labels:
+        app: nginx # Pod template's label selector
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: nginx
+        image: registry.k8s.io/nginx-slim:0.8
+        ports:
+        - containerPort: 80
+          name: web
+        volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+```
+
+<img width="423" alt="image" src="https://github.com/seung-hun-h/record/assets/60502370/f8398983-4574-4cd2-9bec-5f0074c4f582">
+
+- 파드가 순서대로 생성되고 있는 것을 확인할 수 있다
+
+##### 헤드리스 서비스
+- `nginx` 서비스의 설정 중 `clusterIP: None`이 있다
+	- IP 자원을 아끼기위해 ClusterIP를 할당하지 않았다
+<img width="550" alt="image" src="https://github.com/seung-hun-h/record/assets/60502370/8c18f71c-8aae-4fe0-a0f2-3acfbd520077">
+
+- 노출되는 IP는 없지만 내부적으로 각 파드의 이름과 노출된 서비스 이름등을 조합한 도메인 이름으로 클러스터 내에서 통신이 가능하다
+- 
