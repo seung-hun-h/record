@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: my-pvc-alicek106
+spec:
+  storageClassName: ""            # 1. 다이나믹 프로비저닝을 사용하지 않음을 명시합니다.
+  accessModes:
+    - ReadWriteOnce               # 2. accessMode가 ReadWriteOnce 인 PV를 선택합니다.
+  resources:
+    requests:
+      storage: 5Gi                # 3. 스토리지의 크기가 5GB보다 큰 PV를 선택합니다.
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pd-mount-container
+spec:
+  containers:
+    - name: pd-mount-container
+      image: busybox
+      args: [ "tail", "-f", "/dev/null" ]
+      volumeMounts:
+      - name: pd-volume
+        mountPath: /mnt
+  volumes:
+  - name : pd-volume
+    persistentVolumeClaim:
+      claimName: my-pvc-alicek106   # 4. my-pvc-alicek106 라는 이름의 pvc를 사용합니다.
