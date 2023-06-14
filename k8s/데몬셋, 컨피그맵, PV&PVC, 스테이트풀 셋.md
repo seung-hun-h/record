@@ -509,4 +509,3 @@ spec:
 <img width="550" alt="image" src="https://github.com/seung-hun-h/record/assets/60502370/8c18f71c-8aae-4fe0-a0f2-3acfbd520077">
 
 - 노출되는 IP는 없지만 내부적으로 각 파드의 이름과 노출된 서비스 이름등을 조합한 도메인 이름으로 클러스터 내에서 통신이 가능하다
-- 
